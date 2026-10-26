@@ -45,6 +45,7 @@ public static class BakeCatchVisualValidation
         session = Object.FindFirstObjectByType<GameSession>();
         spawner = Object.FindFirstObjectByType<IngredientSpawner>();
         session.MainMenu();
+        session.SelectPlayer(new PlayerProfile("EDITOR", "Visual validation"));
         spawner.enabled = false;
         gameView = EditorWindow.GetWindow(Type.GetType("UnityEditor.GameView,UnityEditor"));
         wasMaximized = gameView.maximized;

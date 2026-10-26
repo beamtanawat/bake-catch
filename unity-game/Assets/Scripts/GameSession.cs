@@ -21,6 +21,15 @@ public class GameSession : MonoBehaviour
     public string Feedback { get; private set; } = "";
     private float feedbackUntil;
     private Vector3 playerStart;
+    public PlayerProfile Player { get; private set; }
+    private PlayerProfile playerAtStart;
+
+    public bool SelectPlayer(PlayerProfile profile)
+    {
+        if (State == SessionState.Playing || State == SessionState.Paused || profile == null) return false;
+        Player = profile.Copy();
+        return true;
+    }
 #if UNITY_WEBGL && !UNITY_EDITOR
     private string sessionId;
     [DllImport("__Internal")] private static extern void BakeCatchFirebaseInit();
@@ -52,6 +61,8 @@ public class GameSession : MonoBehaviour
 
     public void StartSession(DifficultyLevel difficulty)
     {
+        if (Player == null) { Debug.LogWarning("Select a player profile before starting."); return; }
+        playerAtStart = Player.Copy();
 #if UNITY_WEBGL && !UNITY_EDITOR
         sessionId = System.Guid.NewGuid().ToString("N");
 #endif
@@ -91,6 +102,7 @@ public class GameSession : MonoBehaviour
         if (!IsPlaying) return;
         State = SessionState.Ended;
         Result = new SessionResult(Statistics, sessionDuration - Remaining, Difficulty);
+        Result.profile = playerAtStart.Copy();
         spawner.ClearObjects();
 #if UNITY_WEBGL && !UNITY_EDITOR
         BakeCatchFirebaseSave(sessionId, JsonUtility.ToJson(Result));

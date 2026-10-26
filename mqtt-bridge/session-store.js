@@ -1,3 +1,4 @@
+import { normalizeProfile } from './player-profile.js';
 // Browser outbox and Firebase share this strict whitelist. No placeholder grip statistics.
 export function sessionData(result) {
   if (!result || !['Easy', 'Medium', 'Hard'].includes(result.level)) throw new Error('Invalid session level');
@@ -31,7 +32,8 @@ export async function flushSessions(storage, save) {
     const record = JSON.parse(raw);
     if (!/^[a-f0-9]{32}$/.test(record.id) || key !== prefix + record.id ||
         !Number.isSafeInteger(record.endedAtClient) || record.endedAtClient <= 0) throw new Error('Invalid pending session');
-    await save({ id: record.id, endedAtClient: record.endedAtClient, result: sessionData(record.result) });
+    await save({ id: record.id, endedAtClient: record.endedAtClient, result: sessionData(record.result),
+      profile: normalizeProfile(record.profile), ownerUid: record.ownerUid || null });
     // Preserve any concurrent replacement, and never clear unrelated browser data.
     if (storage.getItem(key) === raw) storage.removeItem(key);
   }

@@ -148,6 +148,8 @@ public static class BakeCatchValidation
         spawner = Object.FindFirstObjectByType<IngredientSpawner>();
         player = Object.FindFirstObjectByType<PlayerController>();
         ui = Object.FindFirstObjectByType<BakeCatchUI>();
+        // Local Editor fixture only; production now requires a selected profile before playing.
+        session.SelectPlayer(new PlayerProfile("EDITOR", "Gameplay validation"));
         originalKeyboard = Keyboard.current;
         keyboard = InputSystem.AddDevice<Keyboard>("Bake Catch Validation Keyboard");
         keyboard.MakeCurrent();

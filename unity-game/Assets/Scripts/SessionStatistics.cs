@@ -59,6 +59,7 @@ public sealed class SessionResult
     public string level;
     public bool hasGripSamples;
     public int gripSampleCount;
+    public PlayerProfile profile;
 
     public SessionResult(SessionStatistics stats, float duration, DifficultyLevel difficulty)
     {

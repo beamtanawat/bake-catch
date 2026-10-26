@@ -15,9 +15,21 @@ mergeInto(LibraryManager.library, {
       var id = UTF8ToString(idPtr), result = JSON.parse(UTF8ToString(resultPtr));
       if (result.hasGripSamples !== true) { delete result.leftAvgGrip; delete result.rightAvgGrip; }
       // Persist synchronously BEFORE loading Firebase: offline/module errors must not lose the result.
-      localStorage.setItem('bakecatch.session.' + id, JSON.stringify({ id: id, result: result, endedAtClient: Date.now() }));
+      localStorage.setItem('bakecatch.session.' + id, JSON.stringify({ id: id, result: result,
+        profile: result.profile || null, ownerUid: localStorage.getItem('bakecatch.firebaseOwner'), endedAtClient: Date.now() }));
       window.dispatchEvent(new Event('bakecatch-session-queued'));
       _BakeCatchFirebaseInit();
     } catch (error) { console.error('Bake Catch could not queue the session result:', error.message); }
+  },
+  BakeCatchFirebaseProfile__deps: ['BakeCatchFirebaseInit'],
+  BakeCatchFirebaseProfile: function (profilePtr) {
+    try {
+      var profile = JSON.parse(UTF8ToString(profilePtr));
+      localStorage.setItem('bakecatch.selectedProfile', JSON.stringify(profile));
+      localStorage.setItem('bakecatch.profile.' + profile.code, JSON.stringify({ profile: profile,
+        ownerUid: localStorage.getItem('bakecatch.firebaseOwner') }));
+      window.dispatchEvent(new Event('bakecatch-session-queued'));
+      _BakeCatchFirebaseInit();
+    } catch (error) { console.error('Bake Catch could not queue the player profile:', error.message); }
   }
 });

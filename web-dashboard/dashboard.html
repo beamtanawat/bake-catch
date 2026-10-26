@@ -1758,6 +1758,7 @@
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 
   import { measuredGrip, formatGrip } from "./grip-display.js";
+  import { selectedProfile, playerDocumentId } from "../player-profile.js";
 
 
   import {
@@ -1813,7 +1814,7 @@
 
 
   const app =
-    initializeApp(firebaseConfig);
+    initializeApp(firebaseConfig, "bakecatch-game");
 
 
   const auth =
@@ -1892,8 +1893,8 @@
     try {
 
 
-      const playerId =
-        "P001";
+      const profile = selectedProfile(localStorage);
+      const playerId = playerDocumentId(auth.currentUser.uid, profile);
 
 
 
@@ -1914,11 +1915,9 @@
 
 
       if (!playerSnapshot.exists()) {
-
-        throw new Error(
-          "Player not found"
-        );
-
+        document.getElementById("playerNameTop").textContent = profile?.displayName ?? "Legacy P001";
+        statusText.textContent = "Profile waiting to sync. Open the game online first.";
+        return;
       }
 
 
@@ -1930,8 +1929,7 @@
       document.getElementById(
         "playerNameTop"
       ).textContent =
-        player.displayName ??
-        playerId;
+        (player.displayName ?? playerId) + (profile ? " · " + profile.code : " (legacy P001)");
 
 
 
@@ -1999,11 +1997,8 @@
       if (
         sessions.length === 0
       ) {
-
-        throw new Error(
-          "No session data"
-        );
-
+        statusText.textContent = "No sessions yet — play a round with this player.";
+        return;
       }
 
 
@@ -2922,6 +2917,9 @@
      ============================================================ */
 
 
+  window.addEventListener("storage", event => {
+    if (event.key === "bakecatch.selectedProfile") location.reload();
+  });
   login();
 
 

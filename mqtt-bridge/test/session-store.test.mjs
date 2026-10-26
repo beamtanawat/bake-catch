@@ -62,3 +62,13 @@ test('one malformed pending record cannot delete or upload another player record
   assert.equal(writes, 0);
   assert.equal(local.length, 1);
 });
+test('queued results retain their original profile after the active player changes', async () => {
+  const local = storage(), saved = [];
+  local.setItem('bakecatch.session.' + id, JSON.stringify({ id, result, endedAtClient: 1792980000000,
+    profile: { code: 'A', displayName: 'Player A' }, ownerUid: 'ownerA' }));
+  local.setItem('bakecatch.selectedProfile', JSON.stringify({ code: 'B', displayName: 'Player B' }));
+  await implementation.flushSessions(local, async record => saved.push(record));
+  assert.deepEqual(saved[0].profile, { code: 'A', displayName: 'Player A' });
+  assert.equal(saved[0].ownerUid, 'ownerA');
+  assert.ok(local.getItem('bakecatch.selectedProfile'));
+});

@@ -34,6 +34,7 @@ tcp.listen(1883, host);
 
 const files = { '/protocol.js': 'protocol.js', '/grip-client.js': 'grip-client.js',
   '/firebase-client.js': 'firebase-client.js', '/session-store.js': 'session-store.js',
+  '/player-profile.js': 'player-profile.js',
   '/mqtt.min.js': 'node_modules/mqtt/dist/mqtt.min.js' };
 const server = http.createServer(async (request, response) => {
   const pathname = new URL(request.url, 'http://localhost').pathname;

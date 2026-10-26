@@ -2,6 +2,7 @@ import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/12.19
 import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
 import { getFirestore, doc, runTransaction, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 import { flushSessions } from './session-store.js';
+import { flushProfiles, playerDocumentId } from './player-profile.js';
 
 // Reuse the dashboard's public web-app configuration, never Admin/service-account credentials.
 const response = await fetch(new URL('firebase-config.json', import.meta.url));
@@ -9,25 +10,49 @@ if (!response.ok) throw new Error('Firebase configuration unavailable');
 const config = await response.json();
 const app = getApps().find(app => app.name === 'bakecatch-game') || initializeApp(config, 'bakecatch-game');
 const auth = getAuth(app), db = getFirestore(app);
-const playerRef = doc(db, 'players', 'P001'); // Same single-player prototype as the existing dashboard.
 let running;
 export const status = { state: 'ready', lastSessionId: null, error: null };
 
-async function save(record) {
+async function identity(expected) {
+  await auth.authStateReady();
   if (!auth.currentUser) await signInAnonymously(auth);
+  const uid = auth.currentUser.uid;
+  if (expected && expected !== uid) throw new Error('Pending data belongs to another browser identity');
+  localStorage.setItem('bakecatch.firebaseOwner', uid);
+  return uid;
+}
+
+async function saveProfile(profile, expectedOwner) {
+  const uid = await identity(expectedOwner);
+  const ref = doc(db, 'players', playerDocumentId(uid, profile));
+  await runTransaction(db, async transaction => {
+    const existing = await transaction.get(ref);
+    if (existing.exists() && existing.data().ownerUid !== uid) throw new Error('Profile owner mismatch');
+    transaction.set(ref, { displayName: profile.displayName, playerCode: profile.code, ownerUid: uid,
+      ...(!existing.exists() ? { playCount: 0, createdAt: serverTimestamp() } : {}) }, { merge: true });
+  });
+}
+
+async function save(record) {
+  const uid = await identity(record.ownerUid);
+  const playerRef = doc(db, 'players', playerDocumentId(uid, record.profile));
   const sessionRef = doc(playerRef, 'sessions', record.id);
   await runTransaction(db, async transaction => {
     const existing = await transaction.get(sessionRef);
     if (existing.exists()) {
-      if (existing.data().ownerUid !== auth.currentUser.uid) throw new Error('Session owner mismatch');
+      if (existing.data().ownerUid !== uid) throw new Error('Session owner mismatch');
       return; // Retry after a lost response must not increase playCount again.
     }
     const player = await transaction.get(playerRef);
+    if (record.profile && player.exists() && player.data().ownerUid !== uid) throw new Error('Profile owner mismatch');
     const count = player.exists() ? (player.data().playCount ?? 0) : 0;
     if (!Number.isSafeInteger(count) || count < 0) throw new Error('Invalid existing playCount');
-    transaction.set(sessionRef, { ...record.result, ownerUid: auth.currentUser.uid,
+    transaction.set(sessionRef, { ...record.result, ownerUid: uid,
+      ...(record.profile ? { playerCode: record.profile.code, playerDisplayName: record.profile.displayName } : {}),
       endedAtClient: record.endedAtClient, playedAt: serverTimestamp() });
-    transaction.set(playerRef, { playCount: count + 1, lastPlayedAt: serverTimestamp() }, { merge: true });
+    transaction.set(playerRef, { playCount: count + 1, lastPlayedAt: serverTimestamp(),
+      ...(record.profile && !player.exists() ? { displayName: record.profile.displayName,
+        playerCode: record.profile.code, ownerUid: uid, createdAt: serverTimestamp() } : {}) }, { merge: true });
   });
   status.lastSessionId = record.id;
 }
@@ -35,7 +60,11 @@ async function save(record) {
 export function flush() {
   if (running) return running;
   status.state = 'saving';
-  running = flushSessions(localStorage, save).then(() => {
+  running = (async () => {
+    await identity();
+    await flushProfiles(localStorage, saveProfile);
+    await flushSessions(localStorage, save);
+  })().then(() => {
     status.state = 'saved'; status.error = null;
   }).catch(error => {
     status.state = 'pending'; status.error = error.code || error.message;

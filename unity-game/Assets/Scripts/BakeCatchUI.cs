@@ -3,6 +3,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
+using System.Runtime.InteropServices;
 
 // Presentation only: all values and actions still come from the existing session.
 public class BakeCatchUI : MonoBehaviour
@@ -10,7 +11,12 @@ public class BakeCatchUI : MonoBehaviour
     [SerializeField] private GameSession session;
     [SerializeField] private Font font;
     private Transform root;
-    private GameObject menu, levels, instructions, hud, pause, result;
+    private GameObject menu, levels, instructions, hud, pause, result, profileScreen;
+    private InputField profileCode, profileName;
+    private Text profileError, playerLabel;
+#if UNITY_WEBGL && !UNITY_EDITOR
+    [DllImport("__Internal")] private static extern void BakeCatchFirebaseProfile(string profile);
+#endif
     private Text timeLabel, scoreLabel, comboLabel, levelLabel, recipeLabel, feedback, resultStats;
     private Text catchLabel, resultScore;
     private readonly Text[] rowNames = new Text[3], rowCounts = new Text[3], rowChecks = new Text[3];
@@ -42,11 +48,16 @@ public class BakeCatchUI : MonoBehaviour
         layout.anchoredPosition = Vector2.zero;
         chef = FindFirstObjectByType<PlayerController>().transform;
         BuildMenu();
+        BuildProfile();
         BuildLevels();
         BuildInstructions();
         BuildHud();
         BuildPause();
         BuildResult();
+        try {
+            string code = PlayerPrefs.GetString("BakeCatch.PlayerCode", "");
+            if (code.Length > 0) UsePlayer(new PlayerProfile(code, PlayerPrefs.GetString("BakeCatch.PlayerName." + code, "")));
+        } catch (System.ArgumentException) { /* Invalid/removed local profiles require selection again. */ }
         Show(menu);
         shownState = SessionState.Ready;
     }
@@ -149,15 +160,77 @@ public class BakeCatchUI : MonoBehaviour
         Card(menu.transform, "Welcome", 138, 150, 690, 618, new Color(1, .96f, .88f, .96f), BakeryArt.Hex("#EDAD83"));
         Picture(menu.transform, "Bake Catch logo", BakeryArt.Artwork("Logo"), 195, 60, 580, 350);
         Label(menu.transform, "A little movement. A little sweetness.", 185, 422, 595, 44, 26);
-        Action(menu.transform, "Start Game", 238, 505, 490, 76, () => Show(levels));
-        Action(menu.transform, "How to Play", 238, 608, 490, 68, () => Show(instructions), false);
-        Label(menu.transform, "TWO-HAND CATCHING GAME  •  KEYBOARD MODE", 170, 711, 630, 32, 18);
+        Action(menu.transform, "Start Game", 238, 505, 490, 76, () => { if (session.Player == null) OpenProfile(); else Show(levels); });
+        Action(menu.transform, "How to Play", 238, 595, 490, 58, () => Show(instructions), false);
+        Action(menu.transform, "Player Profile", 238, 669, 490, 50, OpenProfile, false);
+        playerLabel = Label(menu.transform, "Choose a player before playing", 170, 730, 630, 30, 19);
         Picture(menu.transform, "Welcome chef", BakeryArt.Artwork("Chef"), 900, 247, 555, 590);
         Icon(menu.transform, 0, 835, 300, 100);
         Icon(menu.transform, 11, 1330, 650, 150);
         Icon(menu.transform, 9, 1380, 210, 85);
         Card(menu.transform, "Controls reminder", 430, 820, 740, 47, cream, BakeryArt.Hex("#F0B28F"));
         Label(menu.transform, "A / Left Arrow     •     D / Right Arrow", 450, 820, 700, 47, 22);
+    }
+
+    private InputField ProfileField(string title, float y, int limit)
+    {
+        Label(profileScreen.transform, title, 450, y - 40, 700, 35, 24, null, TextAnchor.MiddleLeft);
+        Image card = Card(profileScreen.transform, title + " input", 450, y, 700, 65, Color.white, pink);
+        card.raycastTarget = true;
+        InputField input = card.gameObject.AddComponent<InputField>();
+        input.targetGraphic = card.transform.GetChild(0).GetComponent<Image>();
+        input.textComponent = Label(card.transform, "", 18, 0, 664, 65, 27, null, TextAnchor.MiddleLeft);
+        input.textComponent.supportRichText = false;
+        input.characterLimit = limit;
+        input.lineType = InputField.LineType.SingleLine;
+        return input;
+    }
+
+    private void BuildProfile()
+    {
+        profileScreen = Screen("Player Profile");
+        Heading(profileScreen.transform, "Player profile", "A profile is not a login. Use a nickname, not private medical information.");
+        Card(profileScreen.transform, "Profile form", 390, 235, 820, 515, cream, BakeryArt.Hex("#EDAD83"));
+        Picture(profileScreen.transform, "Profile chef", BakeryArt.Artwork("Chef"), 75, 390, 270, 350);
+        profileCode = ProfileField("Player code (leave blank for a new code)", 305, 24);
+        profileName = ProfileField("Display name (or leave blank to reuse a saved code)", 435, 40);
+        profileError = Label(profileScreen.transform, "", 435, 510, 730, 55, 20, BakeryArt.Hex("#B52D45"));
+        Action(profileScreen.transform, "Use Player", 525, 580, 550, 68, ConfirmPlayer);
+        Action(profileScreen.transform, "Back", 625, 675, 350, 50, () => Show(menu), false);
+    }
+
+    private void OpenProfile()
+    {
+        profileCode.text = session.Player?.code ?? "";
+        profileName.text = session.Player?.displayName ?? "";
+        profileError.text = "";
+        Show(profileScreen);
+        profileCode.ActivateInputField();
+    }
+
+    private void ConfirmPlayer()
+    {
+        string code = profileCode.text.Trim().ToUpperInvariant(), name = profileName.text.Trim();
+        if (code.Length == 0 && name.Length > 0) code = "P" + System.Guid.NewGuid().ToString("N").Substring(0, 8).ToUpperInvariant();
+        if (name.Length == 0) name = PlayerPrefs.GetString("BakeCatch.PlayerName." + code, "");
+        try {
+            PlayerProfile profile = new PlayerProfile(code, name);
+            if (!UsePlayer(profile)) { profileError.text = "Finish this round before changing player."; return; }
+            PlayerPrefs.SetString("BakeCatch.PlayerCode", profile.code);
+            PlayerPrefs.SetString("BakeCatch.PlayerName." + profile.code, profile.displayName);
+            PlayerPrefs.Save();
+            Show(levels);
+        } catch (System.ArgumentException error) { profileError.text = error.Message; }
+    }
+
+    private bool UsePlayer(PlayerProfile profile)
+    {
+        if (!session.SelectPlayer(profile)) return false;
+        playerLabel.text = profile.displayName + "  ·  " + profile.code;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        BakeCatchFirebaseProfile(JsonUtility.ToJson(profile));
+#endif
+        return true;
     }
 
     private void BuildLevels()
@@ -308,7 +381,7 @@ public class BakeCatchUI : MonoBehaviour
 
     private void Show(GameObject screen)
     {
-        foreach (GameObject item in new[] { menu, levels, instructions, hud, pause, result }) item.SetActive(item == screen);
+        foreach (GameObject item in new[] { menu, levels, instructions, hud, pause, result, profileScreen }) item.SetActive(item == screen);
         Button first = screen.GetComponentInChildren<Button>();
         EventSystem.current.SetSelectedGameObject(first != null ? first.gameObject : null);
         // The menu has a large UI portrait; never leave a second small chef behind a card.
@@ -317,7 +390,7 @@ public class BakeCatchUI : MonoBehaviour
                 renderer.enabled = (screen == hud || screen == pause) && renderer.gameObject != chef.gameObject;
     }
 
-    private void Begin(DifficultyLevel difficulty) { session.StartSession(difficulty); Show(hud); }
+    private void Begin(DifficultyLevel difficulty) { if (session.Player == null) { OpenProfile(); return; } session.StartSession(difficulty); Show(hud); }
     private void ReturnMenu() { session.MainMenu(); Show(menu); }
 
     private void Update()

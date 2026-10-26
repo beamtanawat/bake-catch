@@ -73,8 +73,9 @@ public configuration is read from the existing `web-dashboard/index.html`.
 No service-account key is used, and Firebase Security Rules are not changed.
 
 After a session ends, the game queues the **actual** result in this browser's
-localStorage, then uses the dashboard's existing Anonymous Auth and Firestore
-project. It writes `players/P001/sessions/<session UUID>` and updates the
+localStorage, then uses the existing Anonymous Auth and Firestore project.
+For a selected profile, it writes
+`players/<anonymous UID>_<PLAYER CODE>/sessions/<session UUID>` and updates the
 player's `playCount` and `lastPlayedAt` atomically. Retrying an already-saved
 UUID does not increase the count again. Only completed sessions are saved;
 returning to Main Menu before the end does not create a session.
@@ -110,9 +111,34 @@ Inspect `window.BakeCatchFirebase.status` in the browser console for the save
 state and error code. A `permission-denied` error requires reviewing the
 project's existing Firebase rules, not making the database public.
 
-This deliberately preserves the dashboard's **single-player P001 prototype**.
-Anonymous Auth and an `ownerUid` field alone are not a verified multi-user
-privacy policy. Before collecting identifiable/patient data or deploying
-publicly, implement player sign-in/ownership rules and review data consent,
-retention, and access. The old `index.html` manual test-data button is not used
-by the game; do not use it as evidence of a real session.
+## Named player profiles (not login accounts)
+
+In the game, choose **Player Profile**, enter a display name and optional code,
+then **Use Player**. A blank code generates one. To reuse a saved code on this
+browser, enter its code with a blank name. Entering a new name for that same
+code updates its name, not its history. The most recent player is remembered;
+the Main Menu shows their name/code and lets you switch before starting.
+
+Profile selection queues a separate cloud profile save even before the first
+round. New profile documents contain displayName, playerCode, ownerUid,
+createdAt, playCount (initially 0). A round snapshots its profile when it starts;
+switching later cannot relabel completed or offline-queued sessions. Each
+session also records playerCode/playerDisplayName as they were during play.
+No switching is allowed while Playing or Paused.
+
+The dashboard shares the same named Firebase Anonymous Auth instance and
+selected-profile localStorage on the **same origin** as the game. It refreshes
+when another tab selects a player. A new player with no rounds shows an empty
+state, never another player's history. Old P001 documents/queued sessions stay
+P001 and are never reassigned. With no selected profile, the dashboard can
+still display the legacy P001 data. Do not use the old `index.html` test-data
+button; it is not part of the profile/game flow.
+
+Profiles are scoped to the browser's anonymous Firebase identity. They are not
+password-protected accounts: anyone using this browser can select its profiles.
+A code alone does not restore history on another browser/device, or after
+clearing the anonymous identity. Keep the same origin and browser data.
+No Firebase Security Rules are weakened or deployed by this feature; client
+ownership checks alone do not establish a production privacy boundary. Before
+collecting identifiable/patient data or deploying publicly, implement verified
+sign-in/ownership rules and review consent, retention, and access.

@@ -23,6 +23,7 @@ public static class BakeCatchGripStatisticsValidation
 
         GameSession session = UnityEngine.Object.FindFirstObjectByType<GameSession>();
         PlayerInputProvider input = UnityEngine.Object.FindFirstObjectByType<PlayerInputProvider>();
+        session.SelectPlayer(new PlayerProfile("EDITOR", "Grip validation"));
         session.StartSession(DifficultyLevel.Easy);
         input.ReceiveGrip("{\"available\":true,\"left\":1,\"right\":0}");
         Check(session.Statistics.GripSampleCount == 1, "Collect only new hardware frames.");
