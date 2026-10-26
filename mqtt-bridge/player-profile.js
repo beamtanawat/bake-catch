@@ -26,6 +26,13 @@ export function dashboardPlayers(ownerUid, records) {
   }
   return players.sort((a, b) => a.code.localeCompare(b.code));
 }
+export function resolvePlayerByName(ownerUid, candidate, records) {
+  const profile = normalizeProfile(candidate);
+  if (!profile) throw new Error('Enter a player name');
+  const matches = dashboardPlayers(ownerUid, records).filter(player => player.displayName === profile.displayName);
+  const saved = matches.find(player => player.code === profile.code) ?? matches[0];
+  return saved ? { code: saved.code, displayName: saved.displayName } : profile;
+}
 export async function flushProfiles(storage, save) {
   const prefix = 'bakecatch.profile.';
   const keys = Array.from({ length: storage.length }, (_, i) => storage.key(i)).filter(key => key?.startsWith(prefix));

@@ -148,6 +148,11 @@ public static class BakeCatchValidation
         spawner = Object.FindFirstObjectByType<IngredientSpawner>();
         player = Object.FindFirstObjectByType<PlayerController>();
         ui = Object.FindFirstObjectByType<BakeCatchUI>();
+        Expect(Visible("Player Profile"), "Launch must ask for a player name before the menu");
+        InputField[] nameFields = ui.GetComponentsInChildren<InputField>();
+        Expect(nameFields.Length == 1, "Only the player name is entered; code stays internal");
+        nameFields[0].text = "Gameplay validation";
+        ui.transform.Find("Layout/Player Profile/Continue").GetComponent<Button>().onClick.Invoke();
         // Local Editor fixture only; production now requires a selected profile before playing.
         session.SelectPlayer(new PlayerProfile("EDITOR", "Gameplay validation"));
         originalKeyboard = Keyboard.current;

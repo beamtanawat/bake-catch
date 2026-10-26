@@ -31,5 +31,22 @@ mergeInto(LibraryManager.library, {
       window.dispatchEvent(new Event('bakecatch-session-queued'));
       _BakeCatchFirebaseInit();
     } catch (error) { console.error('Bake Catch could not queue the player profile:', error.message); }
+  },
+  BakeCatchFirebaseFindPlayer__deps: ['BakeCatchFirebaseInit'],
+  BakeCatchFirebaseFindPlayer: function (profilePtr, targetPtr) {
+    var candidate = JSON.parse(UTF8ToString(profilePtr)), target = UTF8ToString(targetPtr);
+    _BakeCatchFirebaseInit();
+    var timer;
+    var timeout = new Promise(function (_, reject) {
+      timer = setTimeout(function () { reject(new Error('Connection timed out')); }, 15000);
+    });
+    Promise.race([timeout, window.BakeCatchFirebaseLoading.then(function () {
+      if (!window.BakeCatchFirebase) throw new Error('Firebase unavailable');
+      return window.BakeCatchFirebase.findPlayerByName(candidate);
+    })]).then(function (profile) {
+      SendMessage(target, 'ReceivePlayerProfile', JSON.stringify(profile));
+    }).catch(function () {
+      SendMessage(target, 'ReceivePlayerError', 'Connect to the internet and try again. Your history is unchanged.');
+    }).finally(function () { clearTimeout(timer); });
   }
 });

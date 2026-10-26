@@ -12,10 +12,12 @@ public class BakeCatchUI : MonoBehaviour
     [SerializeField] private Font font;
     private Transform root;
     private GameObject menu, levels, instructions, hud, pause, result, profileScreen;
-    private InputField profileCode, profileName;
+    private InputField profileName;
+    private bool findingPlayer;
     private Text profileError, playerLabel;
 #if UNITY_WEBGL && !UNITY_EDITOR
     [DllImport("__Internal")] private static extern void BakeCatchFirebaseProfile(string profile);
+    [DllImport("__Internal")] private static extern void BakeCatchFirebaseFindPlayer(string profile, string target);
 #endif
     private Text timeLabel, scoreLabel, comboLabel, levelLabel, recipeLabel, feedback, resultStats;
     private Text catchLabel, resultScore;
@@ -54,11 +56,7 @@ public class BakeCatchUI : MonoBehaviour
         BuildHud();
         BuildPause();
         BuildResult();
-        try {
-            string code = PlayerPrefs.GetString("BakeCatch.PlayerCode", "");
-            if (code.Length > 0) UsePlayer(new PlayerProfile(code, PlayerPrefs.GetString("BakeCatch.PlayerName." + code, "")));
-        } catch (System.ArgumentException) { /* Invalid/removed local profiles require selection again. */ }
-        Show(menu);
+        OpenProfile();
         shownState = SessionState.Ready;
     }
 
@@ -189,44 +187,72 @@ public class BakeCatchUI : MonoBehaviour
     private void BuildProfile()
     {
         profileScreen = Screen("Player Profile");
-        Heading(profileScreen.transform, "Player profile", "A profile is not a login. Use a nickname, not private medical information.");
+        Heading(profileScreen.transform, "Welcome to Bake Catch", "Enter your player name. Use the same name to continue your history.");
         Card(profileScreen.transform, "Profile form", 390, 235, 820, 515, cream, BakeryArt.Hex("#EDAD83"));
         Picture(profileScreen.transform, "Profile chef", BakeryArt.Artwork("Chef"), 75, 390, 270, 350);
-        profileCode = ProfileField("Player code (leave blank for a new code)", 305, 24);
-        profileName = ProfileField("Display name (or leave blank to reuse a saved code)", 435, 40);
+        profileName = ProfileField("Player name / ชื่อผู้เล่น", 365, 40);
         profileError = Label(profileScreen.transform, "", 435, 510, 730, 55, 20, BakeryArt.Hex("#B52D45"));
-        Action(profileScreen.transform, "Use Player", 525, 580, 550, 68, ConfirmPlayer);
-        Action(profileScreen.transform, "Back", 625, 675, 350, 50, () => Show(menu), false);
+        Action(profileScreen.transform, "Continue", 525, 580, 550, 68, ConfirmPlayer);
+        Label(profileScreen.transform, "A nickname is enough. This is a profile, not a login.", 435, 675, 730, 40, 20);
     }
 
     private void OpenProfile()
     {
-        profileCode.text = session.Player?.code ?? "";
-        profileName.text = session.Player?.displayName ?? "";
+        string lastCode = PlayerPrefs.GetString("BakeCatch.PlayerCode", "");
+        profileName.text = session.Player?.displayName ?? PlayerPrefs.GetString("BakeCatch.PlayerName." + lastCode, "");
         profileError.text = "";
         Show(profileScreen);
-        profileCode.ActivateInputField();
+        profileName.ActivateInputField();
     }
 
     private void ConfirmPlayer()
     {
-        string code = profileCode.text.Trim().ToUpperInvariant(), name = profileName.text.Trim();
-        if (code.Length == 0 && name.Length > 0) code = "P" + System.Guid.NewGuid().ToString("N").Substring(0, 8).ToUpperInvariant();
-        if (name.Length == 0) name = PlayerPrefs.GetString("BakeCatch.PlayerName." + code, "");
+        if (findingPlayer) return;
+        string name = profileName.text.Trim();
+        string code = PlayerPrefs.GetString("BakeCatch.PlayerByName." + name, "");
+        string lastCode = PlayerPrefs.GetString("BakeCatch.PlayerCode", "");
+        if (code.Length == 0 && name == PlayerPrefs.GetString("BakeCatch.PlayerName." + lastCode, "")) code = lastCode;
+        if (code.Length == 0) code = "P" + System.Guid.NewGuid().ToString("N").Substring(0, 8).ToUpperInvariant();
         try {
             PlayerProfile profile = new PlayerProfile(code, name);
+#if UNITY_WEBGL && !UNITY_EDITOR
+            findingPlayer = true;
+            profileName.interactable = false;
+            profileError.text = "Finding your player history…";
+            BakeCatchFirebaseFindPlayer(JsonUtility.ToJson(profile), gameObject.name);
+#else
+            ReceivePlayerProfile(JsonUtility.ToJson(profile));
+#endif
+        } catch (System.ArgumentException) { profileError.text = "Enter a name (1–40 characters), without < or >."; }
+    }
+
+    public void ReceivePlayerError(string message)
+    {
+        findingPlayer = false;
+        profileName.interactable = true;
+        profileError.text = message;
+    }
+
+    public void ReceivePlayerProfile(string json)
+    {
+        findingPlayer = false;
+        profileName.interactable = true;
+        try {
+            PlayerProfile parsed = JsonUtility.FromJson<PlayerProfile>(json);
+            PlayerProfile profile = new PlayerProfile(parsed.code, parsed.displayName);
             if (!UsePlayer(profile)) { profileError.text = "Finish this round before changing player."; return; }
             PlayerPrefs.SetString("BakeCatch.PlayerCode", profile.code);
             PlayerPrefs.SetString("BakeCatch.PlayerName." + profile.code, profile.displayName);
+            PlayerPrefs.SetString("BakeCatch.PlayerByName." + profile.displayName, profile.code);
             PlayerPrefs.Save();
-            Show(levels);
+            Show(menu);
         } catch (System.ArgumentException error) { profileError.text = error.Message; }
     }
 
     private bool UsePlayer(PlayerProfile profile)
     {
         if (!session.SelectPlayer(profile)) return false;
-        playerLabel.text = profile.displayName + "  ·  " + profile.code;
+        playerLabel.text = profile.displayName;
 #if UNITY_WEBGL && !UNITY_EDITOR
         BakeCatchFirebaseProfile(JsonUtility.ToJson(profile));
 #endif

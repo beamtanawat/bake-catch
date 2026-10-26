@@ -1,8 +1,8 @@
 import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js';
 import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
-import { getFirestore, doc, runTransaction, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+import { getFirestore, doc, runTransaction, serverTimestamp, collection, query, where, getDocsFromServer } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 import { flushSessions } from './session-store.js';
-import { flushProfiles, playerDocumentId } from './player-profile.js';
+import { flushProfiles, playerDocumentId, resolvePlayerByName } from './player-profile.js';
 
 // Reuse the dashboard's public web-app configuration, never Admin/service-account credentials.
 const response = await fetch(new URL('firebase-config.json', import.meta.url));
@@ -31,6 +31,24 @@ async function saveProfile(profile, expectedOwner) {
     transaction.set(ref, { displayName: profile.displayName, playerCode: profile.code, ownerUid: uid,
       ...(!existing.exists() ? { playCount: 0, createdAt: serverTimestamp() } : {}) }, { merge: true });
   });
+}
+
+export async function findPlayerByName(candidate) {
+  const uid = await identity();
+  // Snapshot pending profiles before the query; a concurrent flush can remove their queue entries.
+  const records = [];
+  for (const key of Object.keys(localStorage).filter(key => key.startsWith('bakecatch.profile.'))) {
+    try {
+      const pending = JSON.parse(localStorage.getItem(key));
+      if (pending.ownerUid !== uid) continue;
+      records.push({ id: playerDocumentId(uid, pending.profile), data: {
+        ownerUid: uid, playerCode: pending.profile.code, displayName: pending.profile.displayName } });
+    } catch { /* Malformed pending records are left untouched for the existing queue handler. */ }
+  }
+  // Require a server answer: an empty offline cache must not create a duplicate identity.
+  const snapshot = await getDocsFromServer(query(collection(db, 'players'), where('ownerUid', '==', uid)));
+  records.push(...snapshot.docs.map(item => ({ id: item.id, data: item.data() })));
+  return resolvePlayerByName(uid, candidate, records);
 }
 
 async function save(record) {

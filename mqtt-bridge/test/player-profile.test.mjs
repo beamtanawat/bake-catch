@@ -1,6 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 const api = await import('../player-profile.js');
+test('name-only entry reuses owned history, favors the remembered duplicate, and keeps new names separate', () => {
+  const records = [
+    { id: 'owner_A', data: { ownerUid: 'owner', playerCode: 'A', displayName: 'Beam' } },
+    { id: 'owner_B', data: { ownerUid: 'owner', playerCode: 'B', displayName: 'Beam' } },
+    { id: 'other_C', data: { ownerUid: 'other', playerCode: 'C', displayName: 'New' } }
+  ];
+  assert.deepEqual(api.resolvePlayerByName('owner', { code: 'NEW', displayName: ' Beam ' }, records), { code: 'A', displayName: 'Beam' });
+  assert.equal(api.resolvePlayerByName('owner', { code: 'B', displayName: 'Beam' }, records).code, 'B');
+  assert.equal(api.resolvePlayerByName('owner', { code: 'NEW', displayName: 'New' }, records).code, 'NEW');
+  assert.throws(() => api.resolvePlayerByName('owner', { code: 'NEW', displayName: '  ' }, records));
+});
 test('profile codes normalize consistently and names cannot contain UI markup or control characters', () => {
   assert.equal(typeof api.normalizeProfile, 'function');
   assert.deepEqual(api.normalizeProfile({ code: ' p002 ', displayName: ' Beam ' }), { code: 'P002', displayName: 'Beam' });
