@@ -302,6 +302,17 @@
       color: #4d332c;
     }
 
+    #historyPlayer {
+      margin-top: 8px;
+      max-width: 100%;
+      padding: 8px 10px;
+      border: 2px solid #edd5c7;
+      border-radius: 12px;
+      background: #fff8ed;
+      color: #4d332c;
+      font: inherit;
+    }
+
 
     /* =========================================================
        WELCOME / QUEST BAR
@@ -1144,7 +1155,7 @@
       <div>
 
         <div class="player-small">
-          Current Player
+          Viewing Player
         </div>
 
         <div
@@ -1153,6 +1164,11 @@
         >
           -
         </div>
+
+        <label class="player-small" for="historyPlayer">ดูประวัติผู้เล่น</label><br>
+        <select id="historyPlayer" disabled>
+          <option value="">กำลังโหลดผู้เล่น…</option>
+        </select>
 
       </div>
 
@@ -1758,7 +1774,7 @@
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 
   import { measuredGrip, formatGrip } from "./grip-display.js";
-  import { selectedProfile, playerDocumentId } from "../player-profile.js";
+  import { selectedProfile, playerDocumentId, dashboardPlayers } from "../player-profile.js";
 
 
   import {
@@ -1777,6 +1793,8 @@
     collection,
     getDocs,
     getDoc,
+    query,
+    where,
     doc
 
   }
@@ -1835,6 +1853,49 @@
 
   let gripChart = null;
 
+  const historyPlayer = document.getElementById("historyPlayer");
+  let historyPlayers = [];
+  let dashboardLoad = 0;
+
+  function clearDashboard() {
+    for (const id of ["playCount", "latestScore", "latestAccuracy", "latestComboTop",
+      "latestLevel", "latestTime", "latestCatch", "latestMiss", "latestCombo", "latestRecipe",
+      "leftGrip", "rightGrip"]) document.getElementById(id).textContent = "—";
+    document.getElementById("latestLevel").classList.remove("level-easy", "level-medium", "level-hard");
+    for (const id of ["leftGripBar", "rightGripBar"]) document.getElementById(id).style.width = "0%";
+    for (const chart of [scoreChart, accuracyChart, gripChart]) chart?.destroy();
+    scoreChart = accuracyChart = gripChart = null;
+    document.getElementById("sessionTable").replaceChildren();
+  }
+
+  async function loadPlayers() {
+    try {
+      const snapshot = await getDocs(query(collection(db, "players"), where("ownerUid", "==", auth.currentUser.uid)));
+      historyPlayers = dashboardPlayers(auth.currentUser.uid,
+        snapshot.docs.map(item => ({ id: item.id, data: item.data() })));
+      const current = selectedProfile(localStorage);
+      const currentId = playerDocumentId(auth.currentUser.uid, current);
+      historyPlayer.replaceChildren();
+      for (const player of historyPlayers) historyPlayer.add(new Option(player.displayName + " · " + player.code, player.id));
+      if (!historyPlayers.length) {
+        historyPlayer.add(new Option("ยังไม่มีผู้เล่น", ""));
+        clearDashboard();
+        statusText.textContent = "ยังไม่มีโปรไฟล์ที่บันทึก — สร้างผู้เล่นในเกมและเชื่อมต่ออินเทอร์เน็ตก่อน";
+        return;
+      }
+      historyPlayer.disabled = false;
+      if (historyPlayers.some(player => player.id === currentId)) historyPlayer.value = currentId;
+      await loadDashboard();
+    } catch (error) {
+      clearDashboard();
+      statusText.className = "error";
+      statusText.textContent = "โหลดรายชื่อผู้เล่นไม่ได้ กรุณาตรวจอินเทอร์เน็ตแล้วรีเฟรช";
+      console.error(error);
+    }
+  }
+
+  historyPlayer.addEventListener("change", () => loadDashboard());
+
 
 
   /* ============================================================
@@ -1874,7 +1935,7 @@
 
       if (user) {
 
-        await loadDashboard();
+        await loadPlayers();
 
       }
 
@@ -1890,11 +1951,18 @@
 
   async function loadDashboard() {
 
+    const load = ++dashboardLoad;
+    clearDashboard();
+    statusText.className = "";
+    statusText.textContent = "กำลังโหลดประวัติ…";
+
     try {
 
 
-      const profile = selectedProfile(localStorage);
-      const playerId = playerDocumentId(auth.currentUser.uid, profile);
+      const profile = historyPlayers.find(player => player.id === historyPlayer.value);
+      if (!profile) return;
+      const playerId = profile.id;
+      document.getElementById("playerNameTop").textContent = profile.displayName + " · " + profile.code;
 
 
 
@@ -1911,6 +1979,8 @@
 
       const playerSnapshot =
         await getDoc(playerRef);
+
+      if (load !== dashboardLoad) return;
 
 
 
@@ -1929,7 +1999,7 @@
       document.getElementById(
         "playerNameTop"
       ).textContent =
-        (player.displayName ?? playerId) + (profile ? " · " + profile.code : " (legacy P001)");
+        (player.displayName ?? profile.displayName) + " · " + profile.code;
 
 
 
@@ -1954,6 +2024,8 @@
 
       const sessionSnapshot =
         await getDocs(sessionsRef);
+
+      if (load !== dashboardLoad) return;
 
 
 
@@ -2221,6 +2293,8 @@
     catch (error) {
 
 
+      if (load !== dashboardLoad) return;
+      clearDashboard();
       console.error(error);
 
 

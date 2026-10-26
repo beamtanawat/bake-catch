@@ -15,6 +15,17 @@ export function selectedProfile(storage) {
   try { return normalizeProfile(JSON.parse(storage.getItem('bakecatch.selectedProfile'))); }
   catch { return null; }
 }
+export function dashboardPlayers(ownerUid, records) {
+  const players = [];
+  for (const { id, data } of records) {
+    if (data.ownerUid !== ownerUid) continue;
+    try {
+      const profile = normalizeProfile({ code: data.playerCode, displayName: data.displayName });
+      if (id === playerDocumentId(ownerUid, profile)) players.push({ id, ...profile });
+    } catch { /* Ignore malformed or legacy records, not other players' history. */ }
+  }
+  return players.sort((a, b) => a.code.localeCompare(b.code));
+}
 export async function flushProfiles(storage, save) {
   const prefix = 'bakecatch.profile.';
   const keys = Array.from({ length: storage.length }, (_, i) => storage.key(i)).filter(key => key?.startsWith(prefix));
