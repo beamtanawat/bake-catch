@@ -1,0 +1,7 @@
+{
+  "name": "bake-catch-grip-bridge",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "node server.mjs", "test": "node --test test/*.test.mjs" },
+  "dependencies": { "aedes": "1.2.0", "mqtt": "5.16.1", "serialport": "13.0.0", "ws": "8.22.0" }
+}
