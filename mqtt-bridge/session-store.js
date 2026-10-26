@@ -23,12 +23,13 @@ export function sessionData(result) {
   return data;
 }
 
-export function playerHistoryData(profile, ownerUid, records) {
+// sameName: rounds from every browser that saved under this exact name (owner/code are not compared).
+export function playerHistoryData(profile, ownerUid, records, sameName = false) {
   const player = normalizeProfile(profile);
   if (!player) throw new Error('Select a player first');
   const items = [];
   for (const { id, data } of records) {
-    if (data.ownerUid !== ownerUid || (data.playerCode && data.playerCode !== player.code)) continue;
+    if (!sameName && (data.ownerUid !== ownerUid || (data.playerCode && data.playerCode !== player.code))) continue;
     try {
       const measured = data.gripMetric === 'controller-input-percent' && data.gripSampleCount > 0;
       const result = { ...sessionData({ ...data, hasGripSamples: measured }), hasGripSamples: measured };

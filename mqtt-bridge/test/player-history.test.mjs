@@ -23,3 +23,9 @@ test('empty history has zero rounds, not a fabricated session', () => {
   const history=store.playerHistoryData({code:'A',displayName:'Beam'},'owner',[]);
   assert.equal(history.totalPlayCount,0);assert.equal(history.bestScore,0);assert.deepEqual(history.items,[]);
 });
+test('same-name history merges rounds saved by other browsers', () => {
+  const records=[{id:'a',data:{...result,ownerUid:'one',playedAt:{seconds:1}}},{id:'b',data:{...result,score:300,ownerUid:'two',playerCode:'Z',playedAt:{seconds:2}}}];
+  const history=store.playerHistoryData({code:'A',displayName:'Beam'},'one',records,true);
+  assert.equal(history.totalPlayCount,2);assert.equal(history.bestScore,300);
+  assert.equal(store.playerHistoryData({code:'A',displayName:'Beam'},'one',records).totalPlayCount,1);
+});
