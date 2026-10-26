@@ -13,7 +13,7 @@ mergeInto(LibraryManager.library, {
   BakeCatchFirebaseSave: function (idPtr, resultPtr) {
     try {
       var id = UTF8ToString(idPtr), result = JSON.parse(UTF8ToString(resultPtr));
-      delete result.leftAvgGrip; delete result.rightAvgGrip;
+      if (result.hasGripSamples !== true) { delete result.leftAvgGrip; delete result.rightAvgGrip; }
       // Persist synchronously BEFORE loading Firebase: offline/module errors must not lose the result.
       localStorage.setItem('bakecatch.session.' + id, JSON.stringify({ id: id, result: result, endedAtClient: Date.now() }));
       window.dispatchEvent(new Event('bakecatch-session-queued'));

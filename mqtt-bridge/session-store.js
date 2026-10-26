@@ -10,6 +10,15 @@ export function sessionData(result) {
       !Number.isFinite(result.accuracy) || result.accuracy < 0 || result.accuracy > 100)
     throw new Error('Invalid session duration or accuracy');
   data.durationSec = result.durationSec; data.accuracy = result.accuracy;
+  if (result.hasGripSamples === true) {
+    if (!Number.isSafeInteger(result.gripSampleCount) || result.gripSampleCount <= 0) throw new Error('Invalid grip sample count');
+    for (const key of ['leftAvgGrip', 'rightAvgGrip']) {
+      if (!Number.isFinite(result[key]) || result[key] < 0 || result[key] > 100) throw new Error('Invalid ' + key);
+      data[key] = result[key];
+    }
+    data.gripSampleCount = result.gripSampleCount;
+    data.gripMetric = 'controller-input-percent';
+  }
   return data;
 }
 

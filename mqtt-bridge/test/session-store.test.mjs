@@ -22,6 +22,20 @@ test('invalid results never become Firebase session data', () => {
     { ...result, accuracy: 101 }, { ...result, catchCount: 1.5 }, { ...result, level: 'Unknown' }])
     assert.throws(() => implementation.sessionData(invalid));
 });
+test('measured grip averages including true released zero survive the save whitelist', () => {
+  const data = implementation.sessionData({ ...result, hasGripSamples: true, gripSampleCount: 200,
+    leftAvgGrip: 37.5, rightAvgGrip: 0 });
+  assert.equal(data.leftAvgGrip, 37.5);
+  assert.equal(data.rightAvgGrip, 0);
+  assert.equal(data.gripSampleCount, 200);
+  assert.equal(data.gripMetric, 'controller-input-percent');
+});
+test('grip fields require measured samples and finite percentages', () => {
+  for (const fields of [{ gripSampleCount: 0 }, { gripSampleCount: 1.5 },
+    { leftAvgGrip: NaN }, { rightAvgGrip: 101 }, { leftAvgGrip: -1 }])
+    assert.throws(() => implementation.sessionData({ ...result, hasGripSamples: true, gripSampleCount: 2, ...fields }));
+  assert.equal(implementation.sessionData({ ...result, hasGripSamples: false, gripSampleCount: 0 }).leftAvgGrip, undefined);
+});
 test('failed cloud save retains the exact record for retry; success removes only that record', async () => {
   assert.equal(typeof implementation.flushSessions, 'function');
   const local = storage(), key = 'bakecatch.session.' + id;

@@ -8,7 +8,11 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float maxX = 7f;
     private GameSession session;
 
-    public void SetSession(GameSession value) => session = value;
+    public void SetSession(GameSession value)
+    {
+        session = value;
+        if (inputProvider != null) inputProvider.SetSession(value);
+    }
 
     private void Awake()
     {

@@ -8,6 +8,9 @@ public class PlayerInputProvider : MonoBehaviour
     [Serializable] private class GripFrame { public bool available; public float left, right; }
     private float gripIntent;
     private double lastGrip = double.NegativeInfinity;
+    private GameSession session;
+
+    public void SetSession(GameSession value) => session = value;
 
 #if UNITY_WEBGL && !UNITY_EDITOR
     [DllImport("__Internal")] private static extern void BakeCatchGripStart(string target);
@@ -41,6 +44,7 @@ public class PlayerInputProvider : MonoBehaviour
                 frame.left < 0 || frame.left > 1 || frame.right < 0 || frame.right > 1) return;
             gripIntent = frame.right - frame.left;
             lastGrip = Time.realtimeSinceStartupAsDouble;
+            if (session != null && session.IsPlaying) session.Statistics.RecordGrip(frame.left, frame.right);
         }
         catch (ArgumentException) { }
     }

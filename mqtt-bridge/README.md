@@ -82,8 +82,23 @@ returning to Main Menu before the end does not create a session.
 Saved fields: score, level, durationSec, catchCount, missCount, accuracy,
 maxCombo, recipeComplete, ownerUid, endedAtClient, playedAt. `endedAtClient`
 records the browser's end time; `playedAt` is the server save time, which can
-be later after an offline retry. No grip averages are inferred from raw mV or
-keyboard input. The dashboard shows missing grip data as `—`/chart gaps.
+be later after an offline retry.
+
+When fresh hardware frames were received during Playing, the session also saves
+`leftAvgGrip`, `rightAvgGrip`, `gripSampleCount`, and
+`gripMetric: "controller-input-percent"`. Each side is the arithmetic mean of
+its valid controller-input samples, multiplied by 100. Input is normalized to
+the configured hard threshold by the existing protocol (not clinical force,
+newtons, or percent muscle strength). A real released sample contributes zero;
+Pause, Main Menu, Ended, invalid packets, and disconnected/missing frames add
+no samples. Statistics reset on every replay. Keyboard keys never generate
+grip samples, although real sensor packets still count if keyboard movement
+temporarily takes priority. This is a sample mean, not a coverage/time estimate.
+
+No-sensor/keyboard-only sessions omit the grip fields, rather than inventing
+zero. The dashboard shows these as `—`/chart gaps. Old sessions are not
+backfilled. Play a new complete 45-second round and refresh the dashboard to
+see the new session's measured input averages.
 
 Failed saves stay queued and retry every 10 seconds and when the browser
 returns online. If the Firebase module itself could not load, reload once
