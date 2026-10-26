@@ -51,6 +51,7 @@
         updateBannerVisibility();
       }
 
+      window.BakeCatchGripBaseUrl = new URL("./", location.href).href;
       var buildUrl = "Build";
       var loaderUrl = buildUrl + "/bakecatch-history-webgl.loader.js";
       var config = {
