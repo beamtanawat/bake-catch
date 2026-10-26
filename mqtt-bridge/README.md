@@ -58,3 +58,46 @@ Observed during development: before the latency setting, real USB receive gaps
 were about 1000 ms. After it, real browser receive gaps were at most 23 ms over
 a 40-second idle capture, with no sequence gaps. These figures measure arrival
 spacing, not physical-squeeze-to-display latency or calibrated force accuracy.
+
+## Firebase session results (WebGL)
+
+Rebuild WebGL after adding `BakeCatchFirebase.jslib` and the `GameSession` hooks.
+Use output folder `unity-game/Builds/FirebaseWebGL` (a verified build is already
+present locally). With this bridge running, open:
+
+- Game: `http://127.0.0.1:8080/game/`
+- Dashboard: `http://127.0.0.1:8080/dashboard/`
+
+Run this bridge before opening the game. It serves the Firebase modules; their
+public configuration is read from the existing `web-dashboard/index.html`.
+No service-account key is used, and Firebase Security Rules are not changed.
+
+After a session ends, the game queues the **actual** result in this browser's
+localStorage, then uses the dashboard's existing Anonymous Auth and Firestore
+project. It writes `players/P001/sessions/<session UUID>` and updates the
+player's `playCount` and `lastPlayedAt` atomically. Retrying an already-saved
+UUID does not increase the count again. Only completed sessions are saved;
+returning to Main Menu before the end does not create a session.
+
+Saved fields: score, level, durationSec, catchCount, missCount, accuracy,
+maxCombo, recipeComplete, ownerUid, endedAtClient, playedAt. `endedAtClient`
+records the browser's end time; `playedAt` is the server save time, which can
+be later after an offline retry. No grip averages are inferred from raw mV or
+keyboard input. The dashboard shows missing grip data as `—`/chart gaps.
+
+Failed saves stay queued and retry every 10 seconds and when the browser
+returns online. If the Firebase module itself could not load, reload once
+online. Keep the same origin/port to access the same queue; clearing browser
+data or closing a private browsing session can lose pending records. Do not
+share a browser profile containing another player's pending data.
+
+Inspect `window.BakeCatchFirebase.status` in the browser console for the save
+state and error code. A `permission-denied` error requires reviewing the
+project's existing Firebase rules, not making the database public.
+
+This deliberately preserves the dashboard's **single-player P001 prototype**.
+Anonymous Auth and an `ownerUid` field alone are not a verified multi-user
+privacy policy. Before collecting identifiable/patient data or deploying
+publicly, implement player sign-in/ownership rules and review data consent,
+retention, and access. The old `index.html` manual test-data button is not used
+by the game; do not use it as evidence of a real session.

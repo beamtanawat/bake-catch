@@ -33,9 +33,50 @@ const tcp = net.createServer(broker.handle);
 tcp.listen(1883, host);
 
 const files = { '/protocol.js': 'protocol.js', '/grip-client.js': 'grip-client.js',
+  '/firebase-client.js': 'firebase-client.js', '/session-store.js': 'session-store.js',
   '/mqtt.min.js': 'node_modules/mqtt/dist/mqtt.min.js' };
 const server = http.createServer(async (request, response) => {
-  const file = files[new URL(request.url, 'http://localhost').pathname];
+  const pathname = new URL(request.url, 'http://localhost').pathname;
+  // Classic scripts already cross origins for WebGL; Firebase modules/fetch need CORS too.
+  const origin = request.headers.origin;
+  try {
+    if (origin && ['127.0.0.1', 'localhost'].includes(new URL(origin).hostname))
+      response.setHeader('Access-Control-Allow-Origin', origin);
+  } catch { /* No CORS access for an invalid/non-local origin. */ }
+  response.setHeader('Vary', 'Origin');
+  if (pathname.startsWith('/game/') || pathname.startsWith('/dashboard/')) {
+    const dashboard = pathname.startsWith('/dashboard/');
+    const root = new URL(dashboard ? '../web-dashboard/' : '../unity-game/Builds/FirebaseWebGL/', import.meta.url);
+    try {
+      const relative = decodeURIComponent(pathname.slice(dashboard ? 11 : 6)) || (dashboard ? 'dashboard.html' : 'index.html');
+      const file = new URL(relative, root);
+      if (!file.href.startsWith(root.href)) { response.writeHead(403).end(); return; }
+      const extension = file.pathname.replace(/\.(br|gz)$/, '').split('.').pop();
+      const type = { html: 'text/html', js: 'text/javascript', wasm: 'application/wasm', data: 'application/octet-stream',
+        css: 'text/css', png: 'image/png', jpg: 'image/jpeg', ico: 'image/x-icon', svg: 'image/svg+xml' }[extension];
+      if (!type) { response.writeHead(404).end(); return; }
+      const content = await readFile(file);
+      const headers = { 'Content-Type': type, 'Cache-Control': 'no-store' };
+      if (file.pathname.endsWith('.br')) headers['Content-Encoding'] = 'br';
+      if (file.pathname.endsWith('.gz')) headers['Content-Encoding'] = 'gzip';
+      response.writeHead(200, headers).end(content);
+    } catch { response.writeHead(404).end(); }
+    return;
+  }
+  if (pathname === '/firebase-config.json') {
+    try {
+      const html = await readFile(new URL('../web-dashboard/index.html', import.meta.url), 'utf8');
+      const config = {};
+      for (const key of ['apiKey', 'authDomain', 'projectId', 'appId']) {
+        const match = html.match(new RegExp(key + ':\\s*"([^"]+)"'));
+        if (!match) throw new Error('Missing public Firebase configuration');
+        config[key] = match[1];
+      }
+      response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify(config));
+    } catch { response.writeHead(500).end(); }
+    return;
+  }
+  const file = files[pathname];
   if (!file) { response.writeHead(404).end(); return; }
   try {
     const content = await readFile(new URL(file, import.meta.url));

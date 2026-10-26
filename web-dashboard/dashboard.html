@@ -1757,6 +1757,8 @@
   }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 
+  import { measuredGrip, formatGrip } from "./grip-display.js";
+
 
   import {
 
@@ -2108,43 +2110,39 @@
 
 
       const leftGrip =
-        clampPercent(
-          latest.leftAvgGrip ?? 0
-        );
+        measuredGrip(latest.leftAvgGrip);
 
 
       const rightGrip =
-        clampPercent(
-          latest.rightAvgGrip ?? 0
-        );
+        measuredGrip(latest.rightAvgGrip);
 
 
 
       document.getElementById(
         "leftGrip"
       ).textContent =
-        `${leftGrip}%`;
+        formatGrip(leftGrip);
 
 
 
       document.getElementById(
         "rightGrip"
       ).textContent =
-        `${rightGrip}%`;
+        formatGrip(rightGrip);
 
 
 
       document.getElementById(
         "leftGripBar"
       ).style.width =
-        `${leftGrip}%`;
+        `${leftGrip ?? 0}%`;
 
 
 
       document.getElementById(
         "rightGripBar"
       ).style.width =
-        `${rightGrip}%`;
+        `${rightGrip ?? 0}%`;
 
 
 
@@ -2180,9 +2178,7 @@
       const leftGrips =
         sessions.map(
           session =>
-            clampPercent(
-              session.leftAvgGrip ?? 0
-            )
+            measuredGrip(session.leftAvgGrip)
         );
 
 
@@ -2190,9 +2186,7 @@
       const rightGrips =
         sessions.map(
           session =>
-            clampPercent(
-              session.rightAvgGrip ?? 0
-            )
+            measuredGrip(session.rightAvgGrip)
         );
 
 
@@ -2894,9 +2888,7 @@
           <td>
 
             🖐️
-            ${clampPercent(
-              session.leftAvgGrip ?? 0
-            )}%
+            ${formatGrip(session.leftAvgGrip)}
 
           </td>
 
@@ -2904,9 +2896,7 @@
           <td>
 
             🤚
-            ${clampPercent(
-              session.rightAvgGrip ?? 0
-            )}%
+            ${formatGrip(session.rightAvgGrip)}
 
           </td>
 

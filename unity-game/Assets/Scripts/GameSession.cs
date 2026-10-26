@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using System.Runtime.InteropServices;
 
 public enum SessionState { Ready, Playing, Paused, Ended }
 
@@ -20,12 +21,20 @@ public class GameSession : MonoBehaviour
     public string Feedback { get; private set; } = "";
     private float feedbackUntil;
     private Vector3 playerStart;
+#if UNITY_WEBGL && !UNITY_EDITOR
+    private string sessionId;
+    [DllImport("__Internal")] private static extern void BakeCatchFirebaseInit();
+    [DllImport("__Internal")] private static extern void BakeCatchFirebaseSave(string id, string result);
+#endif
 
     private void Awake()
     {
         playerStart = player.transform.position;
         player.SetSession(this);
         spawner.SetSession(this);
+#if UNITY_WEBGL && !UNITY_EDITOR
+        BakeCatchFirebaseInit();
+#endif
     }
 
     private void Update()
@@ -43,6 +52,9 @@ public class GameSession : MonoBehaviour
 
     public void StartSession(DifficultyLevel difficulty)
     {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        sessionId = System.Guid.NewGuid().ToString("N");
+#endif
         spawner.ClearObjects();
         Difficulty = difficulty;
         Statistics = new SessionStatistics();
@@ -80,5 +92,8 @@ public class GameSession : MonoBehaviour
         State = SessionState.Ended;
         Result = new SessionResult(Statistics, sessionDuration - Remaining, Difficulty);
         spawner.ClearObjects();
+#if UNITY_WEBGL && !UNITY_EDITOR
+        BakeCatchFirebaseSave(sessionId, JsonUtility.ToJson(Result));
+#endif
     }
 }
