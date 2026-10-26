@@ -93,15 +93,22 @@ export function flush() {
 
 export async function getPlayerHistory(profile) {
   const uid = await identity();
-  const playerId = playerDocumentId(uid, profile);
   if (!profile) throw new Error('Select a player first');
+  const playerId = playerDocumentId(uid, profile);
   await flush();
-  const player = await getDocFromServer(doc(db, 'players', playerId));
-  if (!player.exists()) return playerHistoryData(profile, uid, []);
-  if (player.data().ownerUid !== uid) throw new Error('Profile owner mismatch');
-  // shortcut: like the existing dashboard, load one player's rounds once; use server paging for large histories.
-  const snapshot = await getDocsFromServer(collection(db, 'players', playerId, 'sessions'));
-  return playerHistoryData(profile, uid, snapshot.docs.map(item => ({ id: item.id, data: item.data() })));
+  const own = await getDocFromServer(doc(db, 'players', playerId));
+  if (own.exists() && own.data().ownerUid !== uid) throw new Error('Profile owner mismatch');
+  // Every browser that saved under this exact name; needs Firestore rules that let signed-in users read players/sessions.
+  const players = await getDocsFromServer(query(collection(db, 'players'), where('displayName', '==', profile.displayName)));
+  const ids = new Set(players.docs.map(item => item.id));
+  if (own.exists()) ids.add(playerId);
+  const records = [];
+  for (const id of ids) {
+    // shortcut: like the existing dashboard, load rounds once; use server paging for large histories.
+    const snapshot = await getDocsFromServer(collection(db, 'players', id, 'sessions'));
+    records.push(...snapshot.docs.map(item => ({ id: id + '_' + item.id, data: item.data() })));
+  }
+  return playerHistoryData(profile, uid, records, true);
 }
 window.addEventListener('bakecatch-session-queued', flush);
 window.addEventListener('online', flush);
