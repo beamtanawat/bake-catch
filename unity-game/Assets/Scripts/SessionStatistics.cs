@@ -9,6 +9,7 @@ public sealed class SessionStatistics
     public int MaxCombo { get; private set; }
     public int RecipeComplete { get; private set; }
     public int GripSampleCount { get; private set; }
+    public int BonusSlices { get; private set; }
     private double leftGripSum, rightGripSum;
     public float LeftAvgGrip => GripSampleCount == 0 ? 0f : Mathf.Clamp((float)(100 * leftGripSum / GripSampleCount), 0f, 100f);
     public float RightAvgGrip => GripSampleCount == 0 ? 0f : Mathf.Clamp((float)(100 * rightGripSum / GripSampleCount), 0f, 100f);
@@ -23,6 +24,13 @@ public sealed class SessionStatistics
             left < 0 || left > 1 || right < 0 || right > 1) return;
         leftGripSum += left; rightGripSum += right;
         GripSampleCount++;
+    }
+
+    public void AddBonusSlice(int points)
+    {
+        if (points <= 0) return;
+        Score += points;
+        BonusSlices++;
     }
 
     public void Resolve(IngredientDefinition ingredient, bool caught, RecipeProgress recipe)
@@ -59,6 +67,7 @@ public sealed class SessionResult
     public string level;
     public bool hasGripSamples;
     public int gripSampleCount;
+    public int bonusSlices;
     public PlayerProfile profile;
 
     public SessionResult(SessionStatistics stats, float duration, DifficultyLevel difficulty)
@@ -75,5 +84,6 @@ public sealed class SessionResult
         hasGripSamples = gripSampleCount > 0;
         leftAvgGrip = stats.LeftAvgGrip;
         rightAvgGrip = stats.RightAvgGrip;
+        bonusSlices = stats.BonusSlices;
     }
 }

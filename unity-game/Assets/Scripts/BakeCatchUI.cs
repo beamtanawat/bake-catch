@@ -35,6 +35,9 @@ public class BakeCatchUI : MonoBehaviour
     private readonly Image[] rowIcons = new Image[3];
     private Image timeFill, recipeIcon;
     private Transform chef;
+    private GameObject bonus;
+    private BonusCakeView cakeView;
+    private PlayerInputProvider inputProvider;
     private SessionState shownState;
     private readonly Color ink = BakeryArt.Hex("#592A24");
     private readonly Color cream = BakeryArt.Hex("#FFF8EB");
@@ -64,6 +67,7 @@ public class BakeCatchUI : MonoBehaviour
         BuildLevels();
         BuildInstructions();
         BuildHud();
+        BuildBonus();
         BuildPause();
         BuildResult();
         BuildHistory();
@@ -311,7 +315,7 @@ public class BakeCatchUI : MonoBehaviour
         string[] titles = { "1   MOVE", "2   COLLECT", "3   WATCH OUT" };
         string[] copy = {
             "A / Left Arrow: move left\nD / Right Arrow: move right\nBoth directions: stop",
-            "Follow your order card.\nCollect its three ingredients.\nThen bake the next recipe!",
+            "Follow your order card.\nEvery 2 orders: Bonus Time!\nShake right hand (or Space)\nto cut cake: points + time",
             "Avoid the dark bombs.\nCatches build your combo.\nMisses reset your combo."
         };
         for (int i = 0; i < 3; i++)
@@ -379,6 +383,33 @@ public class BakeCatchUI : MonoBehaviour
         Outline outline = catchLabel.gameObject.AddComponent<Outline>();
         outline.effectColor = cream;
         outline.effectDistance = new Vector2(2, -2);
+    }
+
+    // Cake-cutting overlay on top of the frozen HUD; it only mirrors GameSession's Bonus Time values.
+    private void BuildBonus()
+    {
+        // Full-screen scene over the frozen bakery; the HUD bar stays live above it.
+        bonus = Rect("Bonus Time", hud.transform, 0, 0, 1600, 900).gameObject;
+        Panel(bonus.transform, "Soft dim", 0, 0, 1600, 900, new Color(.3f, .14f, .08f, .28f));
+        cakeView = new BonusCakeView(bonus.transform, font);
+        inputProvider = chef.GetComponent<PlayerController>().InputProvider;
+        bonus.SetActive(false);
+    }
+
+    private void UpdateBonus()
+    {
+        bool visible = session.BonusVisible;
+        if (bonus.activeSelf != visible)
+        {
+            bonus.SetActive(visible);
+            cakeView.Reset(); // Clears slash, slice and pops on entry and on exit.
+            feedback.gameObject.SetActive(!visible);
+            catchLabel.gameObject.SetActive(!visible);
+            foreach (Renderer renderer in chef.GetComponentsInChildren<Renderer>())
+                if (renderer.gameObject != chef.gameObject) renderer.enabled = !visible;
+        }
+        // Paused keeps the current frame: no time passes for the chef, cake or effects.
+        if (visible) cakeView.Tick(session, inputProvider, session.InBonus ? Time.unscaledDeltaTime : 0f);
     }
 
     private void BuildPause()
@@ -539,7 +570,7 @@ public class BakeCatchUI : MonoBehaviour
         // The menu has a large UI portrait; never leave a second small chef behind a card.
         if (chef != null)
             foreach (Renderer renderer in chef.GetComponentsInChildren<Renderer>())
-                renderer.enabled = (screen == hud || screen == pause) && renderer.gameObject != chef.gameObject;
+                renderer.enabled = (screen == hud || screen == pause) && !session.BonusVisible && renderer.gameObject != chef.gameObject;
     }
 
     private void Begin(DifficultyLevel difficulty) { if (session.Player == null) { OpenProfile(); return; } session.StartSession(difficulty); Show(hud); }
@@ -552,7 +583,7 @@ public class BakeCatchUI : MonoBehaviour
         {
             shownState = session.State;
             if (shownState == SessionState.Paused) { Show(pause); hud.SetActive(true); }
-            else if (shownState == SessionState.Playing) Show(hud);
+            else if (shownState == SessionState.Playing || shownState == SessionState.Bonus) Show(hud);
             else if (shownState == SessionState.Ready) Show(menu);
             else
             {
@@ -581,11 +612,12 @@ public class BakeCatchUI : MonoBehaviour
             else if (Keyboard.current.digit3Key.wasPressedThisFrame) Begin(DifficultyLevel.Hard);
         }
         if (!hud.activeSelf) return;
+        UpdateBonus();
         timeLabel.text = FormatTime(session.Remaining);
         scoreLabel.text = session.Statistics.Score.ToString();
         comboLabel.text = "x" + session.Statistics.CurrentCombo;
         levelLabel.text = session.Difficulty.ToString();
-        timeFill.rectTransform.sizeDelta = new Vector2(138 * session.Remaining / session.Duration, 5);
+        timeFill.rectTransform.sizeDelta = new Vector2(138 * Mathf.Clamp01(session.Remaining / session.Duration), 5);
         RecipeDefinition recipe = session.Recipe.Current;
         recipeLabel.text = recipe.Name;
         recipeIcon.sprite = BakeryArt.Icon(recipe.Name == "Strawberry Cake" ? 11 : recipe.Name == "Pizza" ? 12 : 13);

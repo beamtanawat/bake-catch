@@ -4,7 +4,8 @@ mergeInto(LibraryManager.library, {
     var engine = Module;
     var deliver = function (frame) {
       engine.SendMessage(target, 'ReceiveGrip', JSON.stringify(frame ?
-        { available: true, left: frame.left, right: frame.right } : { available: false }));
+        { available: true, left: frame.left, right: frame.right,
+          shake: frame.shake || 0, hasShake: typeof frame.shake === 'number' } : { available: false }));
     };
     if (window.BakeCatchGrip) { window.BakeCatchGrip.start(deliver); return; }
     var script = document.createElement('script');

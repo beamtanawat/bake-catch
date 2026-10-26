@@ -130,7 +130,7 @@ if (process.env.SERIAL_PORT) {
       buffer = buffer.slice(end + 1);
       if (line.startsWith('# capturing')) hardMv = null;
       if (line.startsWith('# light=')) {
-        const setting = /hard=(\d+) hyst=\d+ baseL=(\d+) baseR=(\d+)$/.exec(line);
+        const setting = /hard=(\d+) hyst=\d+(?: move=\d+ strong=\d+)? baseL=(\d+) baseR=(\d+)$/.exec(line);
         if (setting) {
           hardMv = Number(setting[1]);
           console.log('Real sensor settings:', line);

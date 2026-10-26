@@ -13,3 +13,9 @@ test('rejects debug lines, malformed, non-finite and out-of-range sensor data', 
   assert.equal(validate({}), null);
   assert.equal(parseCsv('0,0,0,0', 0, 0), null);
 });
+test('GripShake six-field CSV carries the debounced right-hand shake level only', () => {
+  assert.equal(intent(parseCsv('0,0,0,0,2,31', 3, 2000)).shake, 2);
+  assert.equal(intent(parseCsv('0,0,0,0,0,0', 4, 2000)).shake, 0);
+  for (const line of ['0,0,0,0,3,0', '0,0,0,0,1', '0,0,0,0,1,2,3', '0,0,0,0,-1,0'])
+    assert.equal(parseCsv(line, 5, 2000), null);
+});

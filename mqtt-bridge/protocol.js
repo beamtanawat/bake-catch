@@ -7,18 +7,23 @@
       if (![0, 1, 2].includes(p['level' + side]) || !Number.isInteger(p['deltaMv' + side]) ||
           p['deltaMv' + side] < 0 || p['deltaMv' + side] > 3300) return null;
     }
+    // Optional right-hand vibration level from GripShake firmware (0 still, 1 moving, 2 strong); older firmware omits it.
+    if (p.shake !== undefined && ![0, 1, 2].includes(p.shake)) return null;
     return p;
   }
   function parseCsv(line, seq, hardMv) {
-    if (!/^\d+,\d+,\d+,\d+$/.test(line)) return null;
-    const [levelL, deltaMvL, levelR, deltaMvR] = line.split(',').map(Number);
-    return validate({ version: 1, device: 'grip-1', boot: 'serial', seq, hardMv, levelL, deltaMvL, levelR, deltaMvR });
+    // GripReader: levelL,forceL,levelR,forceR. GripShake adds shakeLevel,shakeCount (edges per window, unused).
+    if (!/^\d+,\d+,\d+,\d+(,\d+,\d+)?$/.test(line)) return null;
+    const [levelL, deltaMvL, levelR, deltaMvR, shake] = line.split(',').map(Number);
+    return validate({ version: 1, device: 'grip-1', boot: 'serial', seq, hardMv, levelL, deltaMvL, levelR, deltaMvR,
+      ...(shake === undefined ? {} : { shake }) });
   }
   function intent(p) {
     if (!validate(p)) return null;
     // Relative control scale, not a measured force percentage or newton value.
     return { left: p.levelL === 0 ? 0 : Math.min(1, p.deltaMvL / p.hardMv),
-      right: p.levelR === 0 ? 0 : Math.min(1, p.deltaMvR / p.hardMv) };
+      right: p.levelR === 0 ? 0 : Math.min(1, p.deltaMvR / p.hardMv),
+      ...(p.shake === undefined ? {} : { shake: p.shake }) };
   }
   root.BakeCatchGripProtocol = { validate, parseCsv, intent };
 })(globalThis);

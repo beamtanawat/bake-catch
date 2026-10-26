@@ -7,6 +7,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float minX = -7f;
     [SerializeField] private float maxX = 7f;
     private GameSession session;
+    public PlayerInputProvider InputProvider => inputProvider;
 
     public void SetSession(GameSession value)
     {
