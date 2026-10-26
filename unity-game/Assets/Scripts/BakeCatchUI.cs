@@ -11,15 +11,25 @@ public class BakeCatchUI : MonoBehaviour
     [SerializeField] private GameSession session;
     [SerializeField] private Font font;
     private Transform root;
-    private GameObject menu, levels, instructions, hud, pause, result, profileScreen;
+    private GameObject menu, levels, instructions, hud, pause, result, profileScreen, historyScreen, historyDetail, historyReturn;
     private InputField profileName;
     private bool findingPlayer;
     private Text profileError, playerLabel;
 #if UNITY_WEBGL && !UNITY_EDITOR
     [DllImport("__Internal")] private static extern void BakeCatchFirebaseProfile(string profile);
     [DllImport("__Internal")] private static extern void BakeCatchFirebaseFindPlayer(string profile, string target);
+    [DllImport("__Internal")] private static extern void BakeCatchFirebaseHistory(string request, string target);
+    [DllImport("__Internal")] private static extern int BakeCatchFirebaseSaveState();
 #endif
-    private Text timeLabel, scoreLabel, comboLabel, levelLabel, recipeLabel, feedback, resultStats;
+    private Text timeLabel, scoreLabel, comboLabel, levelLabel, recipeLabel, feedback;
+    private Text resultPlayer, saveStatus, historySummary, historyMessage, historyPageLabel, detailTitle;
+    private readonly Text[] resultValues = new Text[10], detailValues = new Text[10];
+    private readonly Text[] historyDates = new Text[10], historyRows = new Text[10];
+    private readonly Button[] historyDetails = new Button[10];
+    private Button historyNewer, historyOlder;
+    private PlayerHistory loadedHistory;
+    private int historyRequest, historyPage;
+    private float nextSaveCheck;
     private Text catchLabel, resultScore;
     private readonly Text[] rowNames = new Text[3], rowCounts = new Text[3], rowChecks = new Text[3];
     private readonly Image[] rowIcons = new Image[3];
@@ -56,6 +66,7 @@ public class BakeCatchUI : MonoBehaviour
         BuildHud();
         BuildPause();
         BuildResult();
+        BuildHistory();
         OpenProfile();
         shownState = SessionState.Ready;
     }
@@ -160,7 +171,8 @@ public class BakeCatchUI : MonoBehaviour
         Label(menu.transform, "A little movement. A little sweetness.", 185, 422, 595, 44, 26);
         Action(menu.transform, "Start Game", 238, 505, 490, 76, () => { if (session.Player == null) OpenProfile(); else Show(levels); });
         Action(menu.transform, "How to Play", 238, 595, 490, 58, () => Show(instructions), false);
-        Action(menu.transform, "Player Profile", 238, 669, 490, 50, OpenProfile, false);
+        Action(menu.transform, "Player Profile", 238, 669, 235, 50, OpenProfile, false).GetComponentInChildren<Text>().fontSize = 22;
+        Action(menu.transform, "My History", 493, 669, 235, 50, OpenHistory, false).GetComponentInChildren<Text>().fontSize = 22;
         playerLabel = Label(menu.transform, "Choose a player before playing", 170, 730, 630, 30, 19);
         Picture(menu.transform, "Welcome chef", BakeryArt.Artwork("Chef"), 900, 247, 555, 590);
         Icon(menu.transform, 0, 835, 300, 100);
@@ -252,6 +264,8 @@ public class BakeCatchUI : MonoBehaviour
     private bool UsePlayer(PlayerProfile profile)
     {
         if (!session.SelectPlayer(profile)) return false;
+        historyRequest++;
+        loadedHistory = null;
         playerLabel.text = profile.displayName;
 #if UNITY_WEBGL && !UNITY_EDITOR
         BakeCatchFirebaseProfile(JsonUtility.ToJson(profile));
@@ -390,24 +404,136 @@ public class BakeCatchUI : MonoBehaviour
         Picture(result.transform, "Celebration chef", BakeryArt.Artwork("Chef"), 215, 278, 407, 376);
         for (int i = 0; i < 3; i++) Icon(result.transform, 9, 277 + i * 96, 223 - (i == 1 ? 23 : 0), 87);
         Icon(result.transform, 11, 190, 583, 119);
-        Label(result.transform, "Great job!", 250, 651, 365, 62, 39, pink);
+        resultPlayer = Label(result.transform, "", 225, 640, 435, 60, 24, pink);
+        resultPlayer.supportRichText = false;
         Card(result.transform, "Score plaque", 713, 224, 630, 107, BakeryArt.Hex("#FFE8D6"), BakeryArt.Hex("#F3C596"));
         Label(result.transform, "Score", 744, 234, 170, 77, 28);
         resultScore = Label(result.transform, "0", 929, 234, 370, 77, 49, pink);
-        for (int i = 0; i < 8; i++)
-            Panel(result.transform, "Stat stripe " + i, 724, 348 + i * 39, 608, 38,
-                BakeryArt.Hex(i % 2 == 0 ? "#FFF0E7" : "#FFF8EB"));
-        Label(result.transform, "Score\nMax Combo\nCatch Count\nMiss Count\nAccuracy\nPlay Time\nLevel\nRecipe Complete",
-            750, 348, 350, 312, 23, ink, TextAnchor.MiddleLeft).lineSpacing = 1.05f;
-        resultStats = Label(result.transform, "", 1090, 348, 215, 312, 23, ink, TextAnchor.MiddleRight);
-        resultStats.lineSpacing = 1.05f;
-        Action(result.transform, "Play Again", 427, 725, 345, 65, () => Begin(session.Difficulty));
-        Action(result.transform, "Main Menu", 832, 725, 345, 65, ReturnMenu, false);
+        BuildStatRows(result.transform, resultValues, 724, 338, 608);
+        saveStatus = Label(result.transform, "", 225, 692, 1150, 30, 19);
+        Action(result.transform, "Play Again", 225, 735, 345, 55, () => Begin(session.Difficulty));
+        Action(result.transform, "My History", 630, 735, 345, 55, OpenHistory, false);
+        Action(result.transform, "Main Menu", 1035, 735, 345, 55, ReturnMenu, false);
+    }
+
+    private void BuildStatRows(Transform parent, Text[] values, float x, float y, float width)
+    {
+        string[] names = { "Score", "Max Combo", "Catch Count", "Miss Count", "Accuracy", "Play Time", "Level", "Recipe Complete", "Left Grip Input", "Right Grip Input" };
+        for (int i = 0; i < names.Length; i++)
+        {
+            Panel(parent, "Stat stripe " + i, x, y + i * 34, width, 33, BakeryArt.Hex(i % 2 == 0 ? "#FFF0E7" : "#FFF8EB"));
+            Label(parent, names[i], x + 20, y + i * 34, width * .57f, 33, 21, ink, TextAnchor.MiddleLeft);
+            values[i] = Label(parent, "", x + width * .59f, y + i * 34, width * .37f, 33, 21, ink, TextAnchor.MiddleRight);
+        }
+    }
+
+    private static string GripText(SessionResult r, bool left) => r.hasGripSamples ? (left ? r.leftAvgGrip : r.rightAvgGrip).ToString("0.0") + "%" : "No data";
+
+    private static void FillStatRows(Text[] values, SessionResult r)
+    {
+        string[] text = { r.score.ToString(), r.maxCombo.ToString(), r.catchCount.ToString(), r.missCount.ToString(),
+            r.accuracy.ToString("0.0") + "%", FormatTime(r.durationSec), r.level, r.recipeComplete.ToString(), GripText(r, true), GripText(r, false) };
+        for (int i = 0; i < values.Length; i++) values[i].text = text[i];
+    }
+
+    private void BuildHistory()
+    {
+        historyScreen = Screen("My History");
+        Card(historyScreen.transform, "History card", 75, 75, 1450, 743, cream, BakeryArt.Hex("#F0BDA3"));
+        Heading(historyScreen.transform, "My History", "Your own bakery adventures, newest first.");
+        historySummary = Label(historyScreen.transform, "", 150, 205, 1300, 65, 25);
+        historySummary.supportRichText = false;
+        historyMessage = Label(historyScreen.transform, "", 150, 390, 1300, 90, 26);
+        for (int i = 0; i < 10; i++)
+        {
+            int row = i;
+            float y = 285 + i * 39;
+            Panel(historyScreen.transform, "History stripe " + i, 130, y, 1340, 37, BakeryArt.Hex(i % 2 == 0 ? "#FFF0E7" : "#FFF8EB"));
+            historyDates[i] = Label(historyScreen.transform, "", 155, y, 370, 37, 18, ink, TextAnchor.MiddleLeft);
+            historyRows[i] = Label(historyScreen.transform, "", 535, y, 640, 37, 20, ink, TextAnchor.MiddleLeft);
+            historyDetails[i] = Action(historyScreen.transform, "Details " + (i + 1), 1220, y, 220, 36, () => OpenHistoryDetail(row), false);
+            historyDetails[i].GetComponentInChildren<Text>().fontSize = 20;
+        }
+        historyPageLabel = Label(historyScreen.transform, "", 550, 683, 500, 35, 21);
+        Action(historyScreen.transform, "Back", 170, 738, 250, 55, () => Show(historyReturn), false);
+        historyNewer = Action(historyScreen.transform, "Newer", 470, 738, 250, 55, () => { historyPage--; RenderHistory(); }, false);
+        historyOlder = Action(historyScreen.transform, "Older", 770, 738, 250, 55, () => { historyPage++; RenderHistory(); }, false);
+        Action(historyScreen.transform, "Refresh", 1070, 738, 300, 55, LoadHistory, false).GetComponentInChildren<Text>().fontSize = 23;
+        historyDetail = Screen("History Details");
+        Card(historyDetail.transform, "Detail card", 220, 75, 1160, 743, cream, BakeryArt.Hex("#F0BDA3"));
+        Heading(historyDetail.transform, "Session details", "Grip input is relative to the controller threshold, not muscle strength.");
+        detailTitle = Label(historyDetail.transform, "", 280, 210, 1040, 60, 25);
+        detailTitle.supportRichText = false;
+        BuildStatRows(historyDetail.transform, detailValues, 400, 285, 800);
+        Action(historyDetail.transform, "Back to History", 550, 730, 500, 60, () => Show(historyScreen), false);
+        historyMessage.transform.SetAsLastSibling();
+    }
+
+    private void OpenHistory()
+    {
+        if (session.Player == null) { OpenProfile(); return; }
+        historyReturn = result.activeSelf ? result : menu;
+        Show(historyScreen);
+        LoadHistory();
+    }
+
+    private void LoadHistory()
+    {
+        loadedHistory = null;
+        historyPage = 0;
+        historyRequest++;
+        RenderHistory();
+        historySummary.text = session.Player.displayName;
+        historyMessage.text = "Loading your saved rounds…";
+#if UNITY_WEBGL && !UNITY_EDITOR
+        BakeCatchFirebaseHistory(JsonUtility.ToJson(new PlayerHistoryRequest { requestId = historyRequest, profile = session.Player.Copy() }), gameObject.name);
+#else
+        historyMessage.text = "Firebase history is available in the WebGL game. No preview data is created.";
+#endif
+    }
+
+    public void ReceivePlayerHistory(string json)
+    {
+        PlayerHistory data = JsonUtility.FromJson<PlayerHistory>(json);
+        if (!historyScreen.activeSelf || data.requestId != historyRequest || data.code != session.Player?.code) return;
+        if (!string.IsNullOrEmpty(data.error)) { historyMessage.text = data.error; return; }
+        loadedHistory = data;
+        RenderHistory();
+    }
+
+    private void RenderHistory()
+    {
+        PlayerHistoryItem[] items = loadedHistory?.items ?? System.Array.Empty<PlayerHistoryItem>();
+        int pages = Mathf.Max(1, (items.Length + 9) / 10);
+        historyPage = Mathf.Clamp(historyPage, 0, pages - 1);
+        historySummary.text = loadedHistory == null ? "" : $"{loadedHistory.displayName}\nRounds: {loadedHistory.totalPlayCount}     Best Score: {loadedHistory.bestScore}";
+        historyMessage.text = loadedHistory != null && items.Length == 0 ? "No saved rounds yet. Play your first game!" : "";
+        historyPageLabel.text = loadedHistory == null || items.Length == 0 ? "" : $"Page {historyPage + 1} / {pages}";
+        historyNewer.interactable = historyPage > 0;
+        historyOlder.interactable = historyPage + 1 < pages;
+        for (int i = 0; i < 10; i++)
+        {
+            int index = historyPage * 10 + i;
+            bool visible = index < items.Length;
+            historyDetails[i].gameObject.SetActive(visible);
+            historyDates[i].text = visible ? items[index].date : "";
+            historyRows[i].text = visible ? $"{items[index].result.level}    Score {items[index].result.score}    Accuracy {items[index].result.accuracy:0.0}%" : "";
+        }
+    }
+
+    private void OpenHistoryDetail(int row)
+    {
+        int index = historyPage * 10 + row;
+        if (loadedHistory?.items == null || index >= loadedHistory.items.Length) return;
+        PlayerHistoryItem item = loadedHistory.items[index];
+        detailTitle.text = loadedHistory.displayName + "\n" + item.date;
+        FillStatRows(detailValues, item.result);
+        Show(historyDetail);
     }
 
     private void Show(GameObject screen)
     {
-        foreach (GameObject item in new[] { menu, levels, instructions, hud, pause, result, profileScreen }) item.SetActive(item == screen);
+        foreach (GameObject item in new[] { menu, levels, instructions, hud, pause, result, profileScreen, historyScreen, historyDetail }) item.SetActive(item == screen);
         Button first = screen.GetComponentInChildren<Button>();
         EventSystem.current.SetSelectedGameObject(first != null ? first.gameObject : null);
         // The menu has a large UI portrait; never leave a second small chef behind a card.
@@ -433,8 +559,20 @@ public class BakeCatchUI : MonoBehaviour
                 Show(result);
                 SessionResult r = session.Result;
                 resultScore.text = r.score.ToString();
-                resultStats.text = $"{r.score}\n{r.maxCombo}\n{r.catchCount}\n{r.missCount}\n{r.accuracy:0.0}%\n{FormatTime(r.durationSec)}\n{r.level}\n{r.recipeComplete}";
+                resultPlayer.text = r.profile.displayName;
+                FillStatRows(resultValues, r);
+                nextSaveCheck = 0;
             }
+        }
+        if (result.activeSelf && Time.unscaledTime >= nextSaveCheck)
+        {
+            nextSaveCheck = Time.unscaledTime + 1;
+#if UNITY_WEBGL && !UNITY_EDITOR
+            int saved = BakeCatchFirebaseSaveState();
+            saveStatus.text = saved == 2 ? "Saved to Firebase" : saved == 1 ? "Waiting to sync — keep the game open and connect to the internet." : "Save not confirmed — keep the game open.";
+#else
+            saveStatus.text = "Editor preview — this round is not uploaded to Firebase.";
+#endif
         }
         if (levels.activeSelf && Keyboard.current != null)
         {

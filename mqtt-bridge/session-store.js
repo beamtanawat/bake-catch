@@ -23,6 +23,25 @@ export function sessionData(result) {
   return data;
 }
 
+export function playerHistoryData(profile, ownerUid, records) {
+  const player = normalizeProfile(profile);
+  if (!player) throw new Error('Select a player first');
+  const items = [];
+  for (const { id, data } of records) {
+    if (data.ownerUid !== ownerUid || (data.playerCode && data.playerCode !== player.code)) continue;
+    try {
+      const measured = data.gripMetric === 'controller-input-percent' && data.gripSampleCount > 0;
+      const result = { ...sessionData({ ...data, hasGripSamples: measured }), hasGripSamples: measured };
+      const timestamp = Number.isFinite(data.playedAt?.seconds) ? data.playedAt.seconds * 1000 : data.endedAtClient;
+      items.push({ id, timestamp: Number.isFinite(timestamp) ? timestamp : 0,
+        date: Number.isFinite(timestamp) ? new Date(timestamp).toLocaleString() : 'Date unavailable', result });
+    } catch { /* Corrupt records are not presented as real game results. */ }
+  }
+  items.sort((a, b) => b.timestamp - a.timestamp || a.id.localeCompare(b.id));
+  return { code: player.code, displayName: player.displayName, totalPlayCount: items.length,
+    bestScore: items.reduce((best, item) => Math.max(best, item.result.score), 0), items };
+}
+
 export async function flushSessions(storage, save) {
   const prefix = 'bakecatch.session.';
   const keys = Array.from({ length: storage.length }, (_, i) => storage.key(i)).filter(key => key?.startsWith(prefix));

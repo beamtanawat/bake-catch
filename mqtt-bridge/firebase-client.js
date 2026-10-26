@@ -1,7 +1,7 @@
 import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js';
 import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
-import { getFirestore, doc, runTransaction, serverTimestamp, collection, query, where, getDocsFromServer } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
-import { flushSessions } from './session-store.js';
+import { getFirestore, doc, runTransaction, serverTimestamp, collection, query, where, getDocsFromServer, getDocFromServer } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+import { flushSessions, playerHistoryData } from './session-store.js';
 import { flushProfiles, playerDocumentId, resolvePlayerByName } from './player-profile.js';
 
 // Reuse the dashboard's public web-app configuration, never Admin/service-account credentials.
@@ -89,6 +89,19 @@ export function flush() {
     console.warn('Bake Catch: session remains queued for Firebase.', status.error);
   }).finally(() => { running = null; });
   return running;
+}
+
+export async function getPlayerHistory(profile) {
+  const uid = await identity();
+  const playerId = playerDocumentId(uid, profile);
+  if (!profile) throw new Error('Select a player first');
+  await flush();
+  const player = await getDocFromServer(doc(db, 'players', playerId));
+  if (!player.exists()) return playerHistoryData(profile, uid, []);
+  if (player.data().ownerUid !== uid) throw new Error('Profile owner mismatch');
+  // shortcut: like the existing dashboard, load one player's rounds once; use server paging for large histories.
+  const snapshot = await getDocsFromServer(collection(db, 'players', playerId, 'sessions'));
+  return playerHistoryData(profile, uid, snapshot.docs.map(item => ({ id: item.id, data: item.data() })));
 }
 window.addEventListener('bakecatch-session-queued', flush);
 window.addEventListener('online', flush);
