@@ -2047,7 +2047,7 @@
       document.getElementById(
         "latestAccuracy"
       ).textContent =
-        `${latest.accuracy ?? 0}%`;
+        `${Number(latest.accuracy ?? 0).toFixed(1)}%`;
 
 
 
