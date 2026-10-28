@@ -38,6 +38,8 @@ public class BakeCatchUI : MonoBehaviour
     private GameObject bonus;
     private BonusCakeView cakeView;
     private PlayerInputProvider inputProvider;
+    private GameObject countdown;
+    private Text countdownNumber, countdownTitle;
     private SessionState shownState;
     private readonly Color ink = BakeryArt.Hex("#592A24");
     private readonly Color cream = BakeryArt.Hex("#FFF8EB");
@@ -68,6 +70,7 @@ public class BakeCatchUI : MonoBehaviour
         BuildInstructions();
         BuildHud();
         BuildBonus();
+        BuildCountdown();
         BuildPause();
         BuildResult();
         BuildHistory();
@@ -286,7 +289,7 @@ public class BakeCatchUI : MonoBehaviour
         string[] descriptions = {
             "Slow falling speed\n1 ingredient at a time\nPredictable lanes\nNo hazards",
             "Medium falling speed\n1–2 objects at a time\nRandom positions\nSome hazards",
-            "Fast falling speed\n2–3 objects at a time\nRandom positions\nMore hazards"
+            "Fast falling speed\n3–4 objects at a time\nRandom positions\nMore hazards"
         };
         string[] colors = { "#58C66B", "#F4AA32", "#FF6582" };
         string[] fills = { "#ECF8E6", "#FFF4D9", "#FFE8ED" };
@@ -410,6 +413,35 @@ public class BakeCatchUI : MonoBehaviour
         }
         // Paused keeps the current frame: no time passes for the chef, cake or effects.
         if (visible) cakeView.Tick(session, inputProvider, session.InBonus ? Time.unscaledDeltaTime : 0f);
+    }
+
+    // 3-2-1 before play resumes after Bonus Time; mirrors GameSession.CountdownRemaining.
+    private void BuildCountdown()
+    {
+        countdown = Rect("Resume countdown", hud.transform, 0, 0, 1600, 900).gameObject;
+        Panel(countdown.transform, "Soft dim", 0, 0, 1600, 900, new Color(.3f, .14f, .08f, .25f));
+        Card(countdown.transform, "Get ready card", 600, 250, 400, 330, cream, pink);
+        countdownTitle = Label(countdown.transform, "", 600, 270, 400, 50, 30, pink);
+        countdownNumber = Label(countdown.transform, "3", 600, 320, 400, 240, 170, ink);
+        RectTransform number = countdownNumber.rectTransform;
+        number.pivot = new Vector2(.5f, .5f);
+        number.anchoredPosition += new Vector2(200, -120);
+        Outline outline = countdownNumber.gameObject.AddComponent<Outline>();
+        outline.effectColor = Color.white;
+        outline.effectDistance = new Vector2(4, -4);
+        countdown.SetActive(false);
+    }
+
+    private void UpdateCountdown()
+    {
+        countdown.SetActive(session.CountdownVisible);
+        if (!session.CountdownVisible) return;
+        int number = Mathf.Max(1, Mathf.CeilToInt(session.CountdownRemaining));
+        countdownNumber.text = number.ToString();
+        countdownTitle.text = session.CountdownToBonus ? "Bonus Time in…  เตรียมหั่น!" : "Get ready!  เตรียมตัว!";
+        // Each number pops in, then settles.
+        float within = number - session.CountdownRemaining;
+        countdownNumber.rectTransform.localScale = Vector3.one * (within < .2f ? Mathf.Lerp(1.5f, 1f, within / .2f) : 1f);
     }
 
     private void BuildPause()
@@ -583,7 +615,7 @@ public class BakeCatchUI : MonoBehaviour
         {
             shownState = session.State;
             if (shownState == SessionState.Paused) { Show(pause); hud.SetActive(true); }
-            else if (shownState == SessionState.Playing || shownState == SessionState.Bonus) Show(hud);
+            else if (shownState == SessionState.Playing || shownState == SessionState.Bonus || shownState == SessionState.Countdown) Show(hud);
             else if (shownState == SessionState.Ready) Show(menu);
             else
             {
@@ -613,6 +645,7 @@ public class BakeCatchUI : MonoBehaviour
         }
         if (!hud.activeSelf) return;
         UpdateBonus();
+        UpdateCountdown();
         timeLabel.text = FormatTime(session.Remaining);
         scoreLabel.text = session.Statistics.Score.ToString();
         comboLabel.text = "x" + session.Statistics.CurrentCombo;

@@ -2,11 +2,11 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Runtime.InteropServices;
 
-public enum SessionState { Ready, Playing, Paused, Ended, Bonus }
+public enum SessionState { Ready, Playing, Paused, Ended, Bonus, Countdown }
 
 public class GameSession : MonoBehaviour
 {
-    [SerializeField, Min(1f)] private float sessionDuration = 45f;
+    [SerializeField, Min(1f)] private float sessionDuration = 60f;
     [SerializeField] private PlayerController player;
     [SerializeField] private IngredientSpawner spawner;
 
@@ -29,8 +29,16 @@ public class GameSession : MonoBehaviour
     // Optional gameplay floor between slices; 0 = every valid input event counts.
     public static float MinSliceInterval = 0f;
     public bool InBonus => State == SessionState.Bonus;
+    // A 3-2-1 countdown runs before Bonus Time starts and again before play resumes; the round timer stays paused.
+    public const float ResumeCountdown = 3f;
+    public bool CountdownToBonus => countdownNext == SessionState.Bonus;
+    private SessionState countdownNext = SessionState.Playing;
+    public float CountdownRemaining { get; private set; }
+    public bool InCountdown => State == SessionState.Countdown;
+    public bool CountdownVisible => InCountdown || (State == SessionState.Paused && resumeState == SessionState.Countdown);
     // Paused from Bonus Time keeps the cake scene frozen on screen.
-    public bool BonusVisible => InBonus || (State == SessionState.Paused && resumeState == SessionState.Bonus);
+    public bool BonusVisible => InBonus || (InCountdown && CountdownToBonus) ||
+        (State == SessionState.Paused && (resumeState == SessionState.Bonus || (resumeState == SessionState.Countdown && CountdownToBonus)));
     private SessionState resumeState = SessionState.Playing;
     public float BonusRemaining { get; private set; }
     public int BonusSlices { get; private set; }
@@ -44,7 +52,7 @@ public class GameSession : MonoBehaviour
 
     public bool SelectPlayer(PlayerProfile profile)
     {
-        if (State == SessionState.Playing || State == SessionState.Paused || State == SessionState.Bonus || profile == null) return false;
+        if (State == SessionState.Playing || State == SessionState.Paused || State == SessionState.Bonus || State == SessionState.Countdown || profile == null) return false;
         Player = profile.Copy();
         return true;
     }
@@ -69,10 +77,11 @@ public class GameSession : MonoBehaviour
     {
         if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
         {
-            if (IsPlaying || InBonus) Pause();
+            if (IsPlaying || InBonus || InCountdown) Pause();
             else if (State == SessionState.Paused) Resume();
         }
         if (InBonus) { AdvanceBonus(Time.deltaTime, input != null ? input.ConsumeShakes() : 0); return; }
+        if (InCountdown) { AdvanceCountdown(Time.deltaTime); return; }
         if (!IsPlaying) return;
         Remaining = Mathf.Max(0f, Remaining - Time.deltaTime);
         if (Time.time >= feedbackUntil) Feedback = "";
@@ -102,7 +111,7 @@ public class GameSession : MonoBehaviour
 
     public void Pause()
     {
-        if (!IsPlaying && !InBonus) return;
+        if (!IsPlaying && !InBonus && !InCountdown) return;
         resumeState = State;
         State = SessionState.Paused;
     }
@@ -129,7 +138,7 @@ public class GameSession : MonoBehaviour
         if (Statistics.RecipeComplete > previousRecipes) Feedback = "Order complete! Fresh order ready";
         feedbackUntil = Time.time + 1.6f;
         if (Statistics.RecipeComplete > previousRecipes && Statistics.RecipeComplete % RecipesPerBonus == 0 && Remaining > 0f)
-            StartBonus();
+            BeginCountdown(SessionState.Bonus);
     }
 
     private void StartBonus()
@@ -156,9 +165,27 @@ public class GameSession : MonoBehaviour
         BonusRemaining = Mathf.Max(0f, BonusRemaining - deltaTime);
         if (BonusRemaining > 0f) return;
         if (input != null) input.ConsumeShakes();
-        State = SessionState.Playing;
+        BeginCountdown(SessionState.Playing);
         Feedback = $"Bonus Time! +{BonusSlices * SliceScore} points";
         feedbackUntil = Time.time + 2.2f;
+    }
+
+    public void AdvanceCountdown(float deltaTime)
+    {
+        if (!InCountdown) return;
+        CountdownRemaining = Mathf.Max(0f, CountdownRemaining - deltaTime);
+        if (CountdownRemaining > 0f) return;
+        if (CountdownToBonus) StartBonus();
+        else State = SessionState.Playing;
+    }
+
+    private void BeginCountdown(SessionState next)
+    {
+        countdownNext = next;
+        CountdownRemaining = ResumeCountdown;
+        // The cake scene shows during the pre-bonus countdown with fresh counters.
+        if (next == SessionState.Bonus) { BonusSlices = BonusSeconds = 0; BonusRemaining = BonusDuration; }
+        State = SessionState.Countdown;
     }
 
     // One successful slice: points now, and each completed pair adds one second to the Bonus Time countdown.

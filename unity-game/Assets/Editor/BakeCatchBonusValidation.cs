@@ -40,12 +40,19 @@ public static class BakeCatchBonusValidation
         {
             session.SelectPlayer(new PlayerProfile("EDITOR", "Bonus validation"));
             session.StartSession(level);
-            Check(Mathf.Approximately(session.Remaining, 45f), level + ": the round still starts at 45 seconds.");
+            Check(Mathf.Approximately(session.Remaining, 60f), level + ": the round starts at 60 seconds.");
             Complete(session, IngredientType.Strawberry, IngredientType.Milk, IngredientType.Egg);
             Check(session.IsPlaying && session.Statistics.RecipeComplete == 1, level + ": one order does not start Bonus Time.");
             input.ReceiveGrip(Still);
             input.ReceiveGrip(Shake);
             Complete(session, IngredientType.Cheese, IngredientType.Tomato, IngredientType.Dough);
+            Check(session.InCountdown && session.CountdownToBonus && session.BonusVisible && Mathf.Approximately(session.CountdownRemaining, 3f),
+                level + ": the second order starts a 3-2-1 countdown with the cake scene.");
+            input.ReceiveGrip(Still);
+            input.ReceiveGrip(Shake);
+            session.AdvanceCountdown(1.5f);
+            Check(session.InCountdown, level + ": no Bonus Time before the countdown ends.");
+            session.AdvanceCountdown(1.5f);
             Check(session.InBonus && Mathf.Approximately(session.BonusRemaining, GameSession.BonusDuration), level + ": second order starts Bonus Time.");
             Check(input.ConsumeShakes() == 0, level + ": shakes before Bonus Time are discarded.");
             float round = session.Remaining;
@@ -74,24 +81,34 @@ public static class BakeCatchBonusValidation
                 level + ": paused input and time are ignored and not replayed on Resume.");
 
             session.AdvanceBonus(session.BonusRemaining, 0);
-            Check(session.IsPlaying && session.Feedback.StartsWith("Bonus Time!") && !session.BonusVisible, level + ": Bonus Time ends once with a summary.");
+            Check(session.InCountdown && !session.CountdownToBonus && session.CountdownVisible && session.Feedback.StartsWith("Bonus Time!") && !session.BonusVisible, level + ": Bonus Time ends once into a 3-2-1 countdown.");
+            session.Pause();
+            session.AdvanceCountdown(5f);
+            session.Resume();
+            Check(session.InCountdown && Mathf.Approximately(session.CountdownRemaining, GameSession.ResumeCountdown), level + ": Pause freezes the countdown.");
+            session.AdvanceCountdown(2.9f);
+            Check(session.InCountdown && Mathf.Approximately(session.Remaining, round), level + ": the round timer waits during the countdown.");
+            session.AdvanceCountdown(.2f);
+            Check(session.IsPlaying, level + ": play resumes after 3 seconds.");
             session.AdvanceBonus(0f, 5);
             Check(session.BonusSlices == 16 && session.Statistics.BonusSlices == 16, level + ": input after Bonus Time ends does not count.");
-            Check(Mathf.Approximately(session.Remaining, round), level + ": earned seconds go to Bonus Time, not the 45-second round.");
+            Check(Mathf.Approximately(session.Remaining, round), level + ": earned seconds go to Bonus Time, not the round timer.");
 
             Complete(session, IngredientType.Bread, IngredientType.Meat, IngredientType.Cheese);
             Complete(session, IngredientType.Strawberry, IngredientType.Milk, IngredientType.Egg);
+            session.AdvanceCountdown(GameSession.ResumeCountdown);
             Check(session.InBonus && session.BonusSlices == 0 && session.BonusSeconds == 0 && Mathf.Approximately(session.BonusRemaining, GameSession.BonusDuration),
                 level + ": a new Bonus Time starts its counters fresh.");
             session.AdvanceBonus(0f, 1);
             Check(session.BonusSeconds == 0, level + ": no leftover half pair carries into a new Bonus Time.");
             session.AdvanceBonus(session.BonusRemaining, 0);
+            session.AdvanceCountdown(GameSession.ResumeCountdown);
             session.EndSession();
             Check(Mathf.Approximately(session.Result.durationSec, session.Duration - session.Remaining) && session.Result.bonusSlices == 17,
                 level + ": play time stays real round time; bonus slices recorded.");
         }
         session.MainMenu();
-        Debug.Log("BONUS_TIME_VALIDATION_PASS: Easy/Medium/Hard, instant slices, sensor rise events, fixed 5 s Bonus Time, multi-event frames, Pause, end, fresh counters, 45 s round unchanged.");
+        Debug.Log("BONUS_TIME_VALIDATION_PASS: Easy/Medium/Hard, instant slices, sensor rise events, fixed 5 s Bonus Time, multi-event frames, Pause, 3-2-1 countdowns before and after, fresh counters, 60 s round.");
     }
 
     static void Complete(GameSession session, params IngredientType[] types)

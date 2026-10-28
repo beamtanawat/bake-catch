@@ -21,7 +21,7 @@ public sealed class DifficultySettings
     {
         new DifficultySettings(2.2f, 1.5f, 1, 0f, true),
         new DifficultySettings(3.2f, 1.6f, 2, 0.12f, false),
-        new DifficultySettings(4.4f, 0.9f, 3, 0.24f, false)
+        new DifficultySettings(4.8f, 0.75f, 4, 0.22f, false)
     };
 
     public static DifficultySettings Get(DifficultyLevel level) => Modes[(int)level];

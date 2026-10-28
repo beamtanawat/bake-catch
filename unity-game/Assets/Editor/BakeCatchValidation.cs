@@ -269,7 +269,8 @@ public static class BakeCatchValidation
             Click("Main Menu", "Start Game");
             Click("Level Select", "Select " + level);
             player.transform.position = new Vector3(-7, -4, 0);
-            yield return level == DifficultyLevel.Easy ? 2.5 : 3.4;
+            // Hard: 4 spawns by 3.0 s, before the first one leaves the screen (12 units / 4.8 = 2.5 s after 0.75 s).
+            yield return level == DifficultyLevel.Easy ? 2.5 : level == DifficultyLevel.Medium ? 3.4 : 3.1;
             FallingObject[] items = Object.FindObjectsByType<FallingObject>(FindObjectsSortMode.None);
             Expect(items.Length == DifficultySettings.Get(level).MaxObjects, "Actual object density for " + level);
             if (level == DifficultyLevel.Easy)

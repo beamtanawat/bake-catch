@@ -420,7 +420,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 188111e4715824dfba81ccdb068c143d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameSession
-  sessionDuration: 45
+  sessionDuration: 60
   player: {fileID: 934701738}
   spawner: {fileID: 1261779182}
 --- !u!4 &1116980862
