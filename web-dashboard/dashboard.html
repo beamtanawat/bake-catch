@@ -1774,7 +1774,7 @@
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 
   import { measuredGrip, formatGrip } from "./grip-display.js";
-  import { selectedProfile, playerDocumentId, dashboardPlayers } from "../player-profile.js";
+  import { selectedProfile } from "../player-profile.js";
 
 
   import {
@@ -1795,7 +1795,8 @@
     getDoc,
     query,
     where,
-    doc
+    doc,
+    onSnapshot
 
   }
   from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
@@ -1868,30 +1869,54 @@
     document.getElementById("sessionTable").replaceChildren();
   }
 
-  async function loadPlayers() {
-    try {
-      const snapshot = await getDocs(query(collection(db, "players"), where("ownerUid", "==", auth.currentUser.uid)));
-      historyPlayers = dashboardPlayers(auth.currentUser.uid,
-        snapshot.docs.map(item => ({ id: item.id, data: item.data() })));
-      const current = selectedProfile(localStorage);
-      const currentId = playerDocumentId(auth.currentUser.uid, current);
+  // Admin view: every player who has saved under a name, from any browser, kept live.
+  // Rounds are grouped by exact player name, matching the in-game history.
+  let playerDocs = [];
+  let unsubscribePlayers = null;
+  let sessionWatchers = [];
+  const sessionsByDoc = new Map();
+
+  function playerNames() {
+    const names = new Map();
+    for (const item of playerDocs) {
+      const name = typeof item.data.displayName === "string" ? item.data.displayName.trim() : "";
+      if (!name) continue; // Legacy P001 rounds have no player name.
+      const entry = names.get(name) ?? { name, ids: [], rounds: 0 };
+      entry.ids.push(item.id);
+      entry.rounds += Number.isSafeInteger(item.data.playCount) ? item.data.playCount : 0;
+      names.set(name, entry);
+    }
+    return [...names.values()].sort((a, b) => a.name.localeCompare(b.name, "th"));
+  }
+
+  function loadPlayers() {
+    unsubscribePlayers?.();
+    unsubscribePlayers = onSnapshot(collection(db, "players"), snapshot => {
+      playerDocs = snapshot.docs.map(item => ({ id: item.id, data: item.data() }));
+      historyPlayers = playerNames();
+      const previous = historyPlayer.value || selectedProfile(localStorage)?.displayName;
       historyPlayer.replaceChildren();
-      for (const player of historyPlayers) historyPlayer.add(new Option(player.displayName + " · " + player.code, player.id));
+      for (const player of historyPlayers)
+        historyPlayer.add(new Option(`${player.name} · ${player.rounds} รอบ`, player.name));
       if (!historyPlayers.length) {
         historyPlayer.add(new Option("ยังไม่มีผู้เล่น", ""));
+        historyPlayer.disabled = true;
+        stopSessions();
         clearDashboard();
-        statusText.textContent = "ยังไม่มีโปรไฟล์ที่บันทึก — สร้างผู้เล่นในเกมและเชื่อมต่ออินเทอร์เน็ตก่อน";
+        statusText.textContent = "ยังไม่มีผู้เล่นที่บันทึกใน Firebase";
         return;
       }
       historyPlayer.disabled = false;
-      if (historyPlayers.some(player => player.id === currentId)) historyPlayer.value = currentId;
-      await loadDashboard();
-    } catch (error) {
+      historyPlayer.value = historyPlayers.some(player => player.name === previous) ? previous : historyPlayers[0].name;
+      // Re-subscribe only when the selected name gained or lost a profile document.
+      const ids = historyPlayers.find(player => player.name === historyPlayer.value).ids.join();
+      if (ids !== watchedIds) loadDashboard();
+    }, error => {
       clearDashboard();
       statusText.className = "error";
       statusText.textContent = "โหลดรายชื่อผู้เล่นไม่ได้ กรุณาตรวจอินเทอร์เน็ตแล้วรีเฟรช";
       console.error(error);
-    }
+    });
   }
 
   historyPlayer.addEventListener("change", () => loadDashboard());
@@ -1949,131 +1974,56 @@
      ============================================================ */
 
 
-  async function loadDashboard() {
+  let watchedIds = "";
 
+  function stopSessions() {
+    for (const stop of sessionWatchers) stop();
+    sessionWatchers = [];
+    sessionsByDoc.clear();
+    watchedIds = "";
+  }
+
+  // Live: each saved round appears as soon as the game uploads it.
+  function loadDashboard() {
     const load = ++dashboardLoad;
+    stopSessions();
     clearDashboard();
     statusText.className = "";
     statusText.textContent = "กำลังโหลดประวัติ…";
+    const profile = historyPlayers.find(player => player.name === historyPlayer.value);
+    if (!profile) return;
+    document.getElementById("playerNameTop").textContent = profile.name;
+    watchedIds = profile.ids.join();
+    for (const id of profile.ids) {
+      sessionWatchers.push(onSnapshot(collection(db, "players", id, "sessions"), snapshot => {
+        if (load !== dashboardLoad) return;
+        sessionsByDoc.set(id, snapshot.docs.map(item => {
+          const data = item.data();
+          return { id: id + "/" + item.id, ...data,
+            timestamp: data.playedAt?.seconds ?? Math.floor((data.endedAtClient ?? 0) / 1000) };
+        }));
+        if (sessionsByDoc.size === profile.ids.length) render(profile, load);
+      }, error => {
+        if (load !== dashboardLoad) return;
+        clearDashboard();
+        statusText.className = "error";
+        statusText.textContent = "Unable to load data";
+        console.error(error);
+      }));
+    }
+  }
 
+  function render(profile, load) {
     try {
-
-
-      const profile = historyPlayers.find(player => player.id === historyPlayer.value);
-      if (!profile) return;
-      const playerId = profile.id;
-      document.getElementById("playerNameTop").textContent = profile.displayName + " · " + profile.code;
-
-
-
-      /* PLAYER DOCUMENT */
-
-
-      const playerRef =
-        doc(
-          db,
-          "players",
-          playerId
-        );
-
-
-      const playerSnapshot =
-        await getDoc(playerRef);
-
-      if (load !== dashboardLoad) return;
-
-
-
-      if (!playerSnapshot.exists()) {
-        document.getElementById("playerNameTop").textContent = profile?.displayName ?? "Legacy P001";
-        statusText.textContent = "Profile waiting to sync. Open the game online first.";
-        return;
-      }
-
-
-      const player =
-        playerSnapshot.data();
-
-
-
-      document.getElementById(
-        "playerNameTop"
-      ).textContent =
-        (player.displayName ?? profile.displayName) + " · " + profile.code;
-
-
-
-      document.getElementById(
-        "playCount"
-      ).textContent =
-        player.playCount ?? 0;
-
-
-
-      /* SESSION COLLECTION */
-
-
-      const sessionsRef =
-        collection(
-          db,
-          "players",
-          playerId,
-          "sessions"
-        );
-
-
-      const sessionSnapshot =
-        await getDocs(sessionsRef);
-
-      if (load !== dashboardLoad) return;
-
-
-
-      const sessions = [];
-
-
-
-      sessionSnapshot.forEach(
-        (documentSnapshot) => {
-
-
-          const data =
-            documentSnapshot.data();
-
-
-          sessions.push({
-
-            id:
-              documentSnapshot.id,
-
-            ...data,
-
-            timestamp:
-              data.playedAt?.seconds ?? 0
-
-          });
-
-
-        }
-      );
-
-
-
-      sessions.sort(
-        (a, b) =>
-          a.timestamp - b.timestamp
-      );
-
-
-
-      if (
-        sessions.length === 0
-      ) {
+      clearDashboard();
+      document.getElementById("playerNameTop").textContent = profile.name;
+      const sessions = [...sessionsByDoc.values()].flat().sort((a, b) => a.timestamp - b.timestamp);
+      document.getElementById("playCount").textContent = sessions.length;
+      if (sessions.length === 0) {
+        statusText.className = "";
         statusText.textContent = "No sessions yet — play a round with this player.";
         return;
       }
-
-
 
       const latest =
         sessions[
@@ -2286,36 +2236,16 @@
 
       statusText.textContent =
         "Ready ✓";
-
-
+      statusText.textContent = "Live ✓ · updated " + new Date().toLocaleTimeString();
     }
-
     catch (error) {
-
-
       if (load !== dashboardLoad) return;
       clearDashboard();
       console.error(error);
-
-
-      statusText.className =
-        "error";
-
-
-      statusText.textContent =
-        "Unable to load data";
-
-
+      statusText.className = "error";
+      statusText.textContent = "Unable to load data";
     }
-
   }
-
-
-
-  /* ============================================================
-     LEVEL STYLE
-     ============================================================ */
-
 
   function applyLevelStyle(
     element,
