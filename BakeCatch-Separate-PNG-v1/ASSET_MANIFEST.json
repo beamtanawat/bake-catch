@@ -1,0 +1,263 @@
+{
+  "pack": "BakeCatch Separate PNG Assets v1",
+  "totalPng": 21,
+  "generatedPng": 19,
+  "existingGameArtworkCopied": 2,
+  "tool": "built-in image_gen",
+  "notes": [
+    "Logo retains a soft translucent halo.",
+    "Background and chef are unchanged copies from the game.",
+    "Recreated icons are not pixel-exact crops of the original atlas."
+  ],
+  "assets": [
+    {
+      "file": "ingredients/01_strawberry.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "transparent_percent": 52.5,
+      "origin": "generated"
+    },
+    {
+      "file": "ingredients/02_milk.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "transparent_percent": 56,
+      "origin": "generated"
+    },
+    {
+      "file": "ingredients/03_egg.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "transparent_percent": 54.2,
+      "origin": "generated"
+    },
+    {
+      "file": "ingredients/04_cheese.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "transparent_percent": 50.2,
+      "origin": "generated"
+    },
+    {
+      "file": "ingredients/05_tomato.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "transparent_percent": 47.2,
+      "origin": "generated"
+    },
+    {
+      "file": "ingredients/06_dough.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "transparent_percent": 53.3,
+      "origin": "generated"
+    },
+    {
+      "file": "ingredients/07_bread.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "transparent_percent": 48.6,
+      "origin": "generated"
+    },
+    {
+      "file": "ingredients/08_meat.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "transparent_percent": 57.6,
+      "origin": "generated"
+    },
+    {
+      "file": "ingredients/09_chocolate.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "transparent_percent": 56.6,
+      "origin": "generated"
+    },
+    {
+      "file": "ingredients/10_golden_star.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "transparent_percent": 52,
+      "origin": "generated"
+    },
+    {
+      "file": "ingredients/11_hazard.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "transparent_percent": 58.5,
+      "origin": "generated"
+    },
+    {
+      "file": "recipes/12_strawberry_cake.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "transparent_percent": 48.4,
+      "origin": "generated"
+    },
+    {
+      "file": "recipes/13_pizza.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "transparent_percent": 48.2,
+      "origin": "generated"
+    },
+    {
+      "file": "recipes/14_burger.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "transparent_percent": 37.8,
+      "origin": "generated"
+    },
+    {
+      "file": "ui/15_stopwatch.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "transparent_percent": 48.8,
+      "origin": "generated"
+    },
+    {
+      "file": "ui/16_chef_hat.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "transparent_percent": 54.9,
+      "origin": "generated"
+    },
+    {
+      "file": "branding/17_bake_catch_logo.png",
+      "width": 1536,
+      "height": 1024,
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        254
+      ],
+      "transparent_percent": 46.9,
+      "origin": "generated"
+    },
+    {
+      "file": "ui/18_heart.png",
+      "width": 1312,
+      "height": 1199,
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "transparent_percent": 64,
+      "origin": "generated"
+    },
+    {
+      "file": "ui/19_pause_button.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "transparent_percent": 56.6,
+      "origin": "generated"
+    },
+    {
+      "file": "character/20_main_menu_chef.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "transparent_percent": 57.8,
+      "origin": "existing game artwork copied unchanged"
+    },
+    {
+      "file": "background/21_bakery_16x9.png",
+      "width": 1672,
+      "height": 941,
+      "mode": "RGB",
+      "alpha_range": null,
+      "transparent_percent": 0,
+      "origin": "existing game artwork copied unchanged"
+    }
+  ]
+}

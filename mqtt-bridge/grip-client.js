@@ -19,7 +19,9 @@
         if (!window.mqtt) await load('mqtt.min.js');
         client = mqtt.connect(base.replace(/^http/, 'ws') + 'mqtt', {
           clientId: 'browser-' + crypto.randomUUID(), protocolVersion: 4,
-          clean: true, reconnectPeriod: 1000, queueQoSZero: false
+          clean: true, reconnectPeriod: 1000, queueQoSZero: false,
+          // The default worker-based timer can raise "Keepalive timeout" right after connecting.
+          timerVariant: 'native'
         });
         client.on('connect', () => { unavailable(); lastSeq = -1; boot = ''; client.subscribe('bakecatch/grip-1/input', { qos: 0 }); });
         client.on('close', unavailable); client.on('offline', unavailable); client.on('error', unavailable);

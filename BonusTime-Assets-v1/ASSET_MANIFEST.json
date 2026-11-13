@@ -1,0 +1,234 @@
+{
+  "pack": "BakeCatch BonusTime Assets v1",
+  "method": "built-in image_gen",
+  "identitySource": "unity-game/Assets/Resources/BakeCatch/Chef.png",
+  "status": "Standalone image asset pack; not integrated into gameplay",
+  "assetCount": 15,
+  "assets": [
+    {
+      "file": "character/chef_01_ready.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "fully_transparent_percent": 60.9,
+      "alpha_bounds": [
+        0,
+        10,
+        1236,
+        1254
+      ]
+    },
+    {
+      "file": "character/chef_02_raise.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "fully_transparent_percent": 59.26,
+      "alpha_bounds": [
+        47,
+        7,
+        1224,
+        1254
+      ]
+    },
+    {
+      "file": "character/chef_03_slice.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "fully_transparent_percent": 61.48,
+      "alpha_bounds": [
+        31,
+        8,
+        1233,
+        1254
+      ]
+    },
+    {
+      "file": "character/chef_04_finish.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "fully_transparent_percent": 60.69,
+      "alpha_bounds": [
+        138,
+        0,
+        1154,
+        1254
+      ]
+    },
+    {
+      "file": "character/chef_05_recover.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "fully_transparent_percent": 61.45,
+      "alpha_bounds": [
+        0,
+        8,
+        1240,
+        1244
+      ]
+    },
+    {
+      "file": "cake/cake_01_whole.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "fully_transparent_percent": 43.42,
+      "alpha_bounds": [
+        0,
+        38,
+        1239,
+        1214
+      ]
+    },
+    {
+      "file": "cake/cake_02_cut_lines.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "fully_transparent_percent": 43.03,
+      "alpha_bounds": [
+        16,
+        21,
+        1239,
+        1254
+      ]
+    },
+    {
+      "file": "cake/cake_03_slice_separating.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "fully_transparent_percent": 42.11,
+      "alpha_bounds": [
+        0,
+        53,
+        1238,
+        1230
+      ]
+    },
+    {
+      "file": "cake/cake_04_sliced.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "fully_transparent_percent": 42.2,
+      "alpha_bounds": [
+        15,
+        59,
+        1240,
+        1254
+      ]
+    },
+    {
+      "file": "cake/cake_slice_single.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "fully_transparent_percent": 55.12,
+      "alpha_bounds": [
+        0,
+        18,
+        1240,
+        1254
+      ]
+    },
+    {
+      "file": "props/cake_knife.png",
+      "width": 1774,
+      "height": 887,
+      "mode": "RGBA",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "fully_transparent_percent": 76.83,
+      "alpha_bounds": [
+        33,
+        19,
+        1726,
+        820
+      ]
+    },
+    {
+      "file": "effects/knife_slash.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "fully_transparent_percent": 81.33,
+      "alpha_bounds": [
+        19,
+        31,
+        1238,
+        1254
+      ]
+    },
+    {
+      "file": "props/worktable.png",
+      "width": 1774,
+      "height": 887,
+      "mode": "RGBA",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "fully_transparent_percent": 40.56,
+      "alpha_bounds": [
+        0,
+        17,
+        1712,
+        887
+      ]
+    },
+    {
+      "file": "ui/shake_right_hand.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "fully_transparent_percent": 60.89,
+      "alpha_bounds": [
+        17,
+        128,
+        1180,
+        1254
+      ]
+    },
+    {
+      "file": "ui/bonus_time_banner.png",
+      "width": 2172,
+      "height": 724,
+      "mode": "RGBA",
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "fully_transparent_percent": 58.35,
+      "alpha_bounds": [
+        36,
+        7,
+        2138,
+        724
+      ]
+    }
+  ]
+}
